@@ -1,2 +1,2 @@
 # HawkEye
-A 3D rendering front-end
+A 3D rendering front-end.
