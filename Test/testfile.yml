@@ -1,0 +1,18 @@
+# Hawk Eye pipeline configuration.
+
+Stages:
+  - compute
+  - draw
+  - present
+  
+Targets:
+  - color
+  - sample
+  
+Shaders:
+  - simple.comp.glsl.spv
+  - simple.vert.glsl.spv
+  - simple.frag.glsl.spv
+  
+Options:
+  - precompiled shaders

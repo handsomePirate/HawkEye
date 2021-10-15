@@ -16,6 +16,7 @@ project "HawkEye"
 
 	includedirs {
 		SoftwareCoreInclude,
+		YamlInclude,
 		VulkanBackendInclude,
 		HawkEyeInclude,
 		"$(VULKAN_SDK)/include"
@@ -25,6 +26,7 @@ project "HawkEye"
 		"$(VULKAN_SDK)/lib/vulkan-1.lib",
 		"$(VULKAN_SDK)/lib/shaderc_shared.lib",
 		"SoftwareCore",
+		"yaml-cpp",
 		"VulkanBackend"
 	}
 
