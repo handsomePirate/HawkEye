@@ -1,0 +1,3 @@
+[submodule "ext/VulkanBackend"]
+	path = ext/VulkanBackend
+	url = git@github.com:handsomePirate/VulkanBackend.git

@@ -1,0 +1,6 @@
+group "ext"
+	include "ext/VulkanBackend/dependencies.lua"
+group ""
+group "ext"
+	include "ext/VulkanBackend/proj/VulkanBackend"
+group ""
