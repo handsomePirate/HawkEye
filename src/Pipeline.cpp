@@ -1,99 +1,69 @@
 #include "HawkEye/HawkEyeAPI.hpp"
+#include "YAMLConfiguration.hpp"
 #include <VulkanBackend/Logger.hpp>
 #include <VulkanBackend/VulkanBackendAPI.hpp>
 #include <SoftwareCore/Filesystem.hpp>
 #include <yaml-cpp/yaml.h>
 #include <regex>
+#include <memory>
+
+struct HawkEye::Pipeline::Private
+{
+	std::unique_ptr<VulkanBackend::SurfaceData> surfaceData;
+	VkCommandPool commandPool;
+};
+
+HawkEye::Pipeline::Pipeline()
+	: p_(new Private) {}
+
+HawkEye::Pipeline::~Pipeline()
+{
+	delete p_;
+}
 
 void HawkEye::Pipeline::Configure(RendererData rendererData, const char* configFile,
 	void* windowHandle, void* connection)
 {
-	VulkanBackend::Initialized* backendData = (VulkanBackend::Initialized*)rendererData;
+	VulkanBackend::BackendData* backendData = (VulkanBackend::BackendData*)rendererData;
 	
 	YAML::Node configData = YAML::LoadFile(configFile);
 
-	std::vector<std::string> targets;
-	if (configData["Targets"])
+	std::vector<PipelineLayer> layers;
+	if (configData["Layers"])
 	{
-		targets.resize(configData["Targets"].size());
-		for (int t = 0; t < configData["Targets"].size(); ++t)
+		if (!configData["Layers"].IsSequence())
 		{
-			targets[t] = configData["Targets"][t].as<std::string>();
-		}
-	}
-	else
-	{
-		targets.push_back("color");
-	}
-
-	std::vector<std::string> shaders;
-	if (configData["Shaders"])
-	{
-		shaders.resize(configData["Shaders"].size());
-		if (shaders.size() < 2)
-		{
-			CoreLogError(VulkanLogger, "Pipeline: Too few shaders specified (at least 2 required).");
+			CoreLogError(VulkanLogger, "Pipeline: Wrong format for layers.");
 			return;
 		}
 
-		bool hasVertex = false, hasFragment = false;
-		std::regex vertexMatch(".+\\.vert\\..+");
-		std::regex fragmentMatch(".+\\.frag\\..+");
-		for (int s = 0; s < configData["Shaders"].size(); ++s)
+		for (int l = 0; l < configData["Layers"].size(); ++l)
 		{
-			shaders[s] = configData["Shaders"][s].as<std::string>();
-			if (std::regex_match(shaders[s], vertexMatch))
-			{
-				hasVertex = true;
-			}
-			else if (std::regex_match(shaders[s], fragmentMatch))
-			{
-				hasFragment = true;
-			}
-		}
-
-		if (!hasVertex)
-		{
-			CoreLogError(VulkanLogger, "Pipeline: Shader list does not contain a vertex shader (must contain '.vert.' in the file name).");
-		}
-		if (!hasFragment)
-		{
-			CoreLogError(VulkanLogger, "Pipeline: Shader list does not contain a fragment shader (must contain '.frag.' in the file name).");
-		}
-		if (!hasVertex || !hasFragment)
-		{
-			return;
+			layers.push_back(ConfigureLayer(configData["Layers"][l]));
 		}
 	}
 	else
 	{
-		CoreLogError(VulkanLogger, "Pipeline: Missing shader configuration (list of shaders).");
-		return;
+		CoreLogWarn(VulkanLogger, "Pipeline: Configuration missing layers.");
 	}
 
-	std::vector<std::string> stages;
-	if (configData["Stages"])
+	if (windowHandle)
 	{
-		stages.resize(configData["Stages"].size());
-		for (int s = 0; s < configData["Stages"].size(); ++s)
-		{
-			stages[s] = configData["Stages"][s].as<std::string>();
-		}
-	}
-	else
-	{
-		CoreLogError(VulkanLogger, "Pipeline: Missing stage configuration (list of stages).");
-		return;
-	}
+		// TODO: We have to prepare presentation.
+		p_->surfaceData = std::make_unique<VulkanBackend::SurfaceData>();
+		VulkanBackend::SurfaceData& surfaceData = *p_->surfaceData.get();
+		VulkanBackend::CreateSurface(backendData->instance, surfaceData, windowHandle, connection);
+		VulkanBackend::GetDepthFormat(backendData->physicalDevice, surfaceData);
+		VulkanBackend::GetSurfaceFormat(backendData->physicalDevice, surfaceData);
+		VulkanBackend::GetSurfaceCapabilities(backendData->physicalDevice, surfaceData);
+		VulkanBackend::GetSurfaceExtent(backendData->physicalDevice, surfaceData);
+		VulkanBackend::GetPresentMode(backendData->physicalDevice, surfaceData);
+		VulkanBackend::GetSwapchainImageCount(surfaceData);
 
-	std::vector<std::string> options;
-	if (configData["Options"])
-	{
-		options.resize(configData["Options"].size());
-		for (int o = 0; o < configData["Options"].size(); ++o)
-		{
-			options[o] = configData["Options"][o].as<std::string>();
-		}
+		VulkanBackend::FilterPresentQueues(*backendData, surfaceData);
+
+		VulkanBackend::SelectPresentQueue(*backendData, surfaceData);
+		VulkanBackend::SelectPresentComputeQueue(*backendData, surfaceData);
 	}
 
 	CoreLogDebug(VulkanLogger, "Pipeline: Configuration successful.");

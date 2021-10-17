@@ -1,7 +1,7 @@
 #include "HawkEye/HawkEyeAPI.hpp"
 #include <VulkanBackend/VulkanBackendAPI.hpp>
 
-static VulkanBackend::Initialized backendData{};
+static VulkanBackend::BackendData backendData{};
 
 HawkEye::RendererData HawkEye::Initialize(const char* backendConfigFile)
 {
