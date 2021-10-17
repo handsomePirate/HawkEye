@@ -1,3 +1,6 @@
 [submodule "ext/VulkanBackend"]
 	path = ext/VulkanBackend
 	url = git@github.com:handsomePirate/VulkanBackend.git
+[submodule "ext/EverViewport"]
+	path = ext/EverViewport
+	url = git@github.com:handsomePirate/EverViewport.git
