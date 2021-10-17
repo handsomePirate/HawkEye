@@ -1,8 +1,46 @@
 # Hawk Eye pipeline configuration.
 
+# Can contain compute, draw, post process, and present in this order (draw is mandatory, the rest is optional).
 Stages:
-  - draw
-  - present
+    draw:
+        # Can be triangle list, point list, line list, line strip, triangle strip, or triangle fan.
+        input: triangle list
+        # Can be fill, line, or point.
+        polygon mode: fill
+        # Can be none, back, front, or both.
+        cull mode: front
+        # Can be clockwise, or counter clockwise.
+        face direction: counter clockwise
+        # TODO: blend enable
+        # Can be any combination of r, g, b, and a.
+        color write mask: rgba
+        # Can be true or false.
+        depth test enable: true
+        # Can be true or false.
+        depth write enable: true
+        # Can be never, less, equal, less or equal, greater, not equal, greater or equal, or always.
+        depth compare op: less
+        # Can be 1, 2, 4, 8, 16, or 32.
+        sample count: 1
+        # TODO: the rest of the dynamic states.
+        # Can be viewport and scissor
+        dynamic states:
+          - viewport
+          - scissor
+        # Can contain any amount of entries of vector types and integral types.
+        pipeline input:
+          # position.
+          - vec3
+          # normal.
+          - vec3
+          # uv.
+          - vec2
+        render pass:
+            attachments:
+              - color
+              - depth
+    # TODO: test present without true.
+    present: true
   
 Targets:
   - color

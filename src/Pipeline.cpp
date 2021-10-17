@@ -12,21 +12,6 @@ void HawkEye::Pipeline::Configure(RendererData rendererData, const char* configF
 	
 	YAML::Node configData = YAML::LoadFile(configFile);
 
-	std::vector<std::string> stages;
-	if (configData["Stages"])
-	{
-		stages.resize(configData["Stages"].size());
-		for (int s = 0; s < configData["Stages"].size(); ++s)
-		{
-			stages[s] = configData["Stages"][s].as<std::string>();
-		}
-	}
-	else
-	{
-		CoreLogError(VulkanLogger, "Pipeline: Missing stage configuration (list of stages).");
-		return;
-	}
-
 	std::vector<std::string> targets;
 	if (configData["Targets"])
 	{
@@ -83,6 +68,21 @@ void HawkEye::Pipeline::Configure(RendererData rendererData, const char* configF
 	else
 	{
 		CoreLogError(VulkanLogger, "Pipeline: Missing shader configuration (list of shaders).");
+		return;
+	}
+
+	std::vector<std::string> stages;
+	if (configData["Stages"])
+	{
+		stages.resize(configData["Stages"].size());
+		for (int s = 0; s < configData["Stages"].size(); ++s)
+		{
+			stages[s] = configData["Stages"][s].as<std::string>();
+		}
+	}
+	else
+	{
+		CoreLogError(VulkanLogger, "Pipeline: Missing stage configuration (list of stages).");
 		return;
 	}
 
