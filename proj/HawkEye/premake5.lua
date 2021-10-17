@@ -17,6 +17,7 @@ project "HawkEye"
 	includedirs {
 		SoftwareCoreInclude,
 		YamlInclude,
+		"../../ext/VulkanBackend/ext/MagicEnum",
 		VulkanBackendInclude,
 		HawkEyeInclude,
 		"$(VULKAN_SDK)/include"

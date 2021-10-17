@@ -13,8 +13,10 @@ namespace HawkEye
 		Pipeline();
 		~Pipeline();
 
-		void Configure(RendererData rendererData, const char* configFile,
-			void* windowHandle = nullptr, void* connection = nullptr);
+		void Configure(RendererData rendererData, const char* configFile, int width, int height,
+			void* windowHandle = nullptr, void* windowConnection = nullptr);
+		void Shutdown();
+
 		void DrawFrame(RendererData rendererData);
 		void Resize(RendererData rendererData);
 	private:

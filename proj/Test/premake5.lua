@@ -11,11 +11,14 @@ project "Test"
 	includedirs {
 		SoftwareCoreInclude,
 		HawkEyeInclude,
+		EverViewportInclude,
 		"$(VULKAN_SDK)/include"
 	}
 	
 	links {
 		"$(VULKAN_SDK)/lib/vulkan-1.lib",
+		"SoftwareCore",
+		"EverViewport",
 		"HawkEye"
 	}
 	

@@ -9,6 +9,7 @@ workspace "HawkEye"
 	}
 	
 include "../dependencies.lua"
+include "../Test/dependencies.lua"
 	
 include "../proj/HawkEye"
 include "../proj/Test"

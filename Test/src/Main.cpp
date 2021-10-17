@@ -1,4 +1,5 @@
 #include <HawkEye/HawkEyeAPI.hpp>
+#include <EverViewport/WindowAPI.hpp>
 #include <SoftwareCore/Filesystem.hpp>
 #include <SoftwareCore/Logger.hpp>
 #include <HawkEye/Logger.hpp>
@@ -6,6 +7,16 @@
 void Print(const char* message, Core::LoggerSeverity severity)
 {
 	printf(message);
+}
+
+void Render()
+{
+
+}
+
+void Resize(int, int)
+{
+
 }
 
 int main(int argc, char* argv[])
@@ -17,9 +28,16 @@ int main(int argc, char* argv[])
 	VulkanLogger.SetNewOutput(&Print);
 
 	auto hawkEyeData = HawkEye::Initialize(backendConfigFile.c_str());
+
+	EverViewport::WindowCallbacks windowCallbacks{Render, Resize};
+	const int windowWidth = 720;
+	const int windowHeight = 480;
+	EverViewport::Window testWindow(50, 50, windowWidth, windowHeight, "test", windowCallbacks);
 	
 	HawkEye::Pipeline renderingPipeline;
-	renderingPipeline.Configure(hawkEyeData, frontendConfigFile.c_str());
+	renderingPipeline.Configure(hawkEyeData, frontendConfigFile.c_str(), windowWidth, windowHeight,
+		testWindow.GetWindowHandle(), testWindow.GetProgramConnection());
+	renderingPipeline.Shutdown();
 
 	HawkEye::Shutdown();
 
