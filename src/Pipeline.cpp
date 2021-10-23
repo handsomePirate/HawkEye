@@ -175,7 +175,6 @@ void HawkEye::Pipeline::Configure(RendererData rendererData, const char* configF
 					layers[0].shaders[s].second.c_str());
 			}
 		}
-		// TODO: Shader modules.
 
 		p_->rasterizationPipeline = VulkanBackend::CreateGraphicsPipeline(device, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL,
 			VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE,
@@ -252,6 +251,7 @@ void HawkEye::Pipeline::Shutdown()
 	if (p_->backendData)
 	{
 		VkDevice device = p_->backendData->logicalDevice;
+		vkDeviceWaitIdle(device);
 
 		if (p_->rasterizationPipeline)
 		{
@@ -322,9 +322,9 @@ void HawkEye::Pipeline::Shutdown()
 	}
 }
 
-void HawkEye::Pipeline::DrawFrame(RendererData rendererData)
+void HawkEye::Pipeline::DrawFrame()
 {
-	VulkanBackend::BackendData* backendData = (VulkanBackend::BackendData*)rendererData;
+	VulkanBackend::BackendData* backendData = p_->backendData;
 
 	uint32_t currentImageIndex;
 	VkResult result = vkAcquireNextImageKHR(backendData->logicalDevice, p_->swapchain, UINT64_MAX, p_->presentSemaphore,
@@ -374,7 +374,7 @@ void HawkEye::Pipeline::DrawFrame(RendererData rendererData)
 	VulkanCheck(vkQueueWaitIdle(p_->surfaceData->defaultPresentQueue));
 }
 
-void HawkEye::Pipeline::Resize(RendererData rendererData)
+void HawkEye::Pipeline::Resize(int width, int height)
 {
-
+	
 }

@@ -17,8 +17,8 @@ namespace HawkEye
 			void* windowHandle = nullptr, void* windowConnection = nullptr);
 		void Shutdown();
 
-		void DrawFrame(RendererData rendererData);
-		void Resize(RendererData rendererData);
+		void DrawFrame();
+		void Resize(int width, int height);
 	private:
 		struct Private;
 		Private* p_;
