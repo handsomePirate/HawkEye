@@ -29,12 +29,13 @@ struct HawkEye::Pipeline::Private
 	VkQueue computeQueue = VK_NULL_HANDLE;
 	VkSemaphore graphicsSemaphore = VK_NULL_HANDLE;
 	VkSemaphore presentSemaphore = VK_NULL_HANDLE;
-	VkFence renderingFence = VK_NULL_HANDLE;
+	std::vector<VkFence> frameFences;
 	VkCommandPool commandPool = VK_NULL_HANDLE;
 	std::vector<VkCommandBuffer> commandBuffers;
 	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
 	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+	uint32_t currentFrame = 0;
 };
 
 HawkEye::Pipeline::Pipeline()
@@ -180,7 +181,10 @@ void HawkEye::Pipeline::Configure(RendererData rendererData, const char* configF
 
 	p_->graphicsSemaphore = VulkanBackend::CreateSemaphore(device);
 	p_->presentSemaphore = VulkanBackend::CreateSemaphore(device);
-	p_->renderingFence = VulkanBackend::CreateFence(device);
+	for (int v = 0; v < p_->swapchainImageViews.size(); ++v)
+	{
+		p_->frameFences.push_back(VulkanBackend::CreateFence(device, VK_FENCE_CREATE_SIGNALED_BIT));
+	}
 
 	p_->commandPool = VulkanBackend::CreateCommandPool(device, backendData->generalFamilyIndex);
 	p_->commandBuffers.resize(p_->swapchainImageViews.size());
@@ -296,9 +300,9 @@ void HawkEye::Pipeline::Shutdown()
 		{
 			VulkanBackend::DestroySemaphore(device, p_->presentSemaphore);
 		}
-		if (p_->renderingFence)
+		for (int f = 0; f < p_->frameFences.size(); ++f)
 		{
-			VulkanBackend::DestroyFence(device, p_->renderingFence);
+			VulkanBackend::DestroyFence(device, p_->frameFences[f]);
 		}
 
 		for (int c = 0; c < p_->commandBuffers.size(); ++c)
@@ -314,10 +318,19 @@ void HawkEye::Pipeline::Shutdown()
 
 void HawkEye::Pipeline::DrawFrame()
 {
+	if (!p_->backendData || p_->surfaceData->width == 0 || p_->surfaceData->height == 0)
+	{
+		return;
+	}
+
 	VulkanBackend::BackendData* backendData = p_->backendData;
+	VkDevice device = backendData->logicalDevice;
+
+	vkWaitForFences(device, 1, &p_->frameFences[p_->currentFrame], VK_TRUE, UINT64_MAX);
+	vkResetFences(device, 1, &p_->frameFences[p_->currentFrame]);
 
 	uint32_t currentImageIndex;
-	VkResult result = vkAcquireNextImageKHR(backendData->logicalDevice, p_->swapchain, UINT64_MAX, p_->presentSemaphore,
+	VkResult result = vkAcquireNextImageKHR(device, p_->swapchain, UINT64_MAX, p_->presentSemaphore,
 		VK_NULL_HANDLE, &currentImageIndex);
 	// Recreate the swapchain if it's no longer compatible with the surface (OUT_OF_DATE) or no longer optimal for presentation (SUBOPTIMAL)
 	if ((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR))
@@ -338,7 +351,7 @@ void HawkEye::Pipeline::DrawFrame()
 	submitInfo.pSignalSemaphores = &p_->graphicsSemaphore;
 	submitInfo.pCommandBuffers = &p_->commandBuffers[currentImageIndex];
 
-	VulkanCheck(vkQueueSubmit(p_->graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
+	VulkanCheck(vkQueueSubmit(p_->graphicsQueue, 1, &submitInfo, p_->frameFences[p_->currentFrame]));
 
 	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -362,11 +375,13 @@ void HawkEye::Pipeline::DrawFrame()
 		}
 	}
 	VulkanCheck(vkQueueWaitIdle(p_->surfaceData->defaultPresentQueue));
+
+	p_->currentFrame = (p_->currentFrame + 1) % p_->frameFences.size();
 }
 
 void HawkEye::Pipeline::Resize(int width, int height)
 {
-	if (!p_->backendData)
+	if (!p_->backendData || width == 0 || height == 0)
 	{
 		return;
 	}
