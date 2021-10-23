@@ -37,6 +37,9 @@ int main(int argc, char* argv[])
 	HawkEye::Pipeline renderingPipeline;
 	renderingPipeline.Configure(hawkEyeData, frontendConfigFile.c_str(), windowWidth, windowHeight,
 		testWindow.GetWindowHandle(), testWindow.GetProgramConnection());
+
+	renderingPipeline.DrawFrame(hawkEyeData);
+
 	renderingPipeline.Shutdown();
 
 	HawkEye::Shutdown();

@@ -18,7 +18,13 @@ struct PipelineLayer
 	};
 	std::vector<PostProcess> postProcess;
 
-	std::vector<std::string> shaders;
+	enum class Shader
+	{
+		Vertex,
+		Fragment,
+		Compute
+	};
+	std::vector<std::pair<Shader, std::string>> shaders;
 
 	enum class Target
 	{

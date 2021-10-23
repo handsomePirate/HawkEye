@@ -19,6 +19,7 @@ project "HawkEye"
 		YamlInclude,
 		"../../ext/VulkanBackend/ext/MagicEnum",
 		VulkanBackendInclude,
+		VulkanShaderCompilerInclude,
 		HawkEyeInclude,
 		"$(VULKAN_SDK)/include"
 	}
@@ -28,7 +29,8 @@ project "HawkEye"
 		"$(VULKAN_SDK)/lib/shaderc_shared.lib",
 		"SoftwareCore",
 		"yaml-cpp",
-		"VulkanBackend"
+		"VulkanBackend",
+		"VulkanShaderCompiler"
 	}
 
 	filter "system:windows"

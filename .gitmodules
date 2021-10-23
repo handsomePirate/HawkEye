@@ -4,3 +4,6 @@
 [submodule "ext/EverViewport"]
 	path = ext/EverViewport
 	url = git@github.com:handsomePirate/EverViewport.git
+[submodule "ext/VulkanShaderCompiler"]
+	path = ext/VulkanShaderCompiler
+	url = git@github.com:handsomePirate/VulkanShaderCompiler.git

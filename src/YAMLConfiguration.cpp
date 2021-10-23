@@ -1,5 +1,6 @@
 #include "YAMLConfiguration.hpp"
 #include <VulkanBackend/Logger.hpp>
+#include <regex>
 
 PipelineLayer ConfigureLayer(const YAML::Node& layerNode)
 {
@@ -43,6 +44,23 @@ PipelineLayer ConfigureLayer(const YAML::Node& layerNode)
 			}
 		}
 	}
+
+	if (layerNode["shaders"])
+	{
+		if (layerNode["shaders"]["vertex"])
+		{
+			layer.shaders.emplace_back(PipelineLayer::Shader::Vertex, layerNode["shaders"]["vertex"].as<std::string>());
+		}
+		if (layerNode["shaders"]["fragment"])
+		{
+			layer.shaders.emplace_back(PipelineLayer::Shader::Fragment, layerNode["shaders"]["fragment"].as<std::string>());
+		}
+		if (layerNode["shaders"]["compute"])
+		{
+			layer.shaders.emplace_back(PipelineLayer::Shader::Compute, layerNode["shaders"]["compute"].as<std::string>());
+		}
+	}
+
 
 	if (layerNode["targets"])
 	{

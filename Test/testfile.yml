@@ -2,11 +2,12 @@
 
 Layers:
   -
-    type: computed
+    type: rasterized
     post:
       #- blur
     shaders:
-        compute: simple.comp.glsl
+        vertex: ../../src/shaders/test.vert.glsl
+        fragment: ../../src/shaders/test.frag.glsl
     targets:
       - color
       #- depth
