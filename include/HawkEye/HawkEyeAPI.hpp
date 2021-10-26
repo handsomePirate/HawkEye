@@ -23,4 +23,28 @@ namespace HawkEye
 		struct Private;
 		Private* p_;
 	};
+
+	typedef struct HTexture_t* HTexture;
+	enum class TextureFormat
+	{
+		Gray,
+		GrayAlpha,
+		RGB,
+		RGBA
+	};
+
+	enum class ColorCompression
+	{
+		None,
+		SRGB
+	};
+
+	enum class TextureCompression
+	{
+		None
+	};
+
+	HTexture UploadTexture(RendererData rendererData, unsigned char* data, int dataSize, int width, int height,
+		TextureFormat format, ColorCompression colorCompression, TextureCompression textureCompression, bool generateMips);
+	void DeleteTexture(RendererData rendererData, HTexture& texture);
 }

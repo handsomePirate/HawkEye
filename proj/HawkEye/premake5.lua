@@ -19,6 +19,7 @@ project "HawkEye"
 		YamlInclude,
 		"../../ext/VulkanBackend/ext/MagicEnum",
 		VulkanBackendInclude,
+		VulkanMemoryAllocatorInclude,
 		VulkanShaderCompilerInclude,
 		HawkEyeInclude,
 		"$(VULKAN_SDK)/include"

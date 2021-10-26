@@ -49,7 +49,7 @@ HawkEye::Pipeline::~Pipeline()
 void HawkEye::Pipeline::Configure(RendererData rendererData, const char* configFile, int width, int height,
 	void* windowHandle, void* windowConnection)
 {
-	VulkanBackend::BackendData* backendData = (VulkanBackend::BackendData*)rendererData;
+	const VulkanBackend::BackendData& backendData = *(VulkanBackend::BackendData*)rendererData;
 	
 	YAML::Node configData = YAML::LoadFile(configFile);
 
@@ -79,35 +79,33 @@ void HawkEye::Pipeline::Configure(RendererData rendererData, const char* configF
 		return;
 	}
 
-	p_->backendData = backendData;
+	p_->backendData = (VulkanBackend::BackendData*)rendererData;
 
 	p_->surfaceData = std::make_unique<VulkanBackend::SurfaceData>();
 	VulkanBackend::SurfaceData& surfaceData = *p_->surfaceData.get();
 	surfaceData.width = width;
 	surfaceData.height = height;
-	VkInstance instance = backendData->instance;
-	VkPhysicalDevice physicalDevice = backendData->physicalDevice;
-	VkDevice device = backendData->logicalDevice;
+	VkDevice device = backendData.logicalDevice;
 
 	if (windowHandle)
 	{
-		VulkanBackend::CreateSurface(instance, surfaceData, windowHandle, windowConnection);
-		VulkanBackend::GetDepthFormat(physicalDevice, surfaceData);
-		VulkanBackend::GetSurfaceFormat(physicalDevice, surfaceData);
-		VulkanBackend::GetSurfaceCapabilities(physicalDevice, surfaceData);
-		VulkanBackend::GetSurfaceExtent(physicalDevice, surfaceData);
-		VulkanBackend::GetPresentMode(physicalDevice, surfaceData);
+		VulkanBackend::CreateSurface(backendData, surfaceData, windowHandle, windowConnection);
+		VulkanBackend::GetDepthFormat(backendData, surfaceData);
+		VulkanBackend::GetSurfaceFormat(backendData, surfaceData);
+		VulkanBackend::GetSurfaceCapabilities(backendData, surfaceData);
+		VulkanBackend::GetSurfaceExtent(backendData, surfaceData);
+		VulkanBackend::GetPresentMode(backendData, surfaceData);
 		VulkanBackend::GetSwapchainImageCount(surfaceData);
 
-		VulkanBackend::FilterPresentQueues(*backendData, surfaceData);
+		VulkanBackend::FilterPresentQueues(backendData, surfaceData);
 
-		VulkanBackend::SelectPresentQueue(*backendData, surfaceData);
-		VulkanBackend::SelectPresentComputeQueue(*backendData, surfaceData);
+		VulkanBackend::SelectPresentQueue(backendData, surfaceData);
+		VulkanBackend::SelectPresentComputeQueue(backendData, surfaceData);
 
-		p_->swapchain = VulkanBackend::CreateSwapchain(*backendData, surfaceData);
+		p_->swapchain = VulkanBackend::CreateSwapchain(backendData, surfaceData);
 
 		std::vector<VkImage> swapchainImages;
-		VulkanBackend::GetSwapchainImages(device, p_->swapchain, swapchainImages);
+		VulkanBackend::GetSwapchainImages(backendData, p_->swapchain, swapchainImages);
 
 		p_->swapchainImageViews.resize(swapchainImages.size());
 		VkImageSubresourceRange subresourceRange{};
@@ -116,21 +114,21 @@ void HawkEye::Pipeline::Configure(RendererData rendererData, const char* configF
 		subresourceRange.layerCount = 1;
 		for (int i = 0; i < p_->swapchainImageViews.size(); ++i)
 		{
-			p_->swapchainImageViews[i] = VulkanBackend::CreateImageView2D(device, swapchainImages[i],
+			p_->swapchainImageViews[i] = VulkanBackend::CreateImageView2D(backendData, swapchainImages[i],
 				surfaceData.surfaceFormat.format, subresourceRange);
 		}
 	}
 
-	VkRenderPass renderPass = VulkanBackend::CreateRenderPass(device, surfaceData);
+	VkRenderPass renderPass = VulkanBackend::CreateRenderPass(backendData, surfaceData);
 	p_->renderPass = renderPass;
 
 	for (int v = 0; v < p_->swapchainImageViews.size(); ++v)
 	{
-		VkFramebuffer framebuffer = VulkanBackend::CreateFramebuffer(device, width, height, renderPass, { p_->swapchainImageViews[v] });
+		VkFramebuffer framebuffer = VulkanBackend::CreateFramebuffer(backendData, width, height, renderPass, { p_->swapchainImageViews[v] });
 		p_->framebuffers.push_back(framebuffer);
 	}
 
-	VkPipelineCache pipelineCache = VulkanBackend::CreatePipelineCache(device);
+	VkPipelineCache pipelineCache = VulkanBackend::CreatePipelineCache(backendData);
 	p_->pipelineCache = pipelineCache;
 
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
@@ -167,7 +165,7 @@ void HawkEye::Pipeline::Configure(RendererData rendererData, const char* configF
 			p_->shaderModules.push_back(shaderStages[1].module);
 		}
 
-		p_->rasterizationPipeline = VulkanBackend::CreateGraphicsPipeline(device, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL,
+		p_->rasterizationPipeline = VulkanBackend::CreateGraphicsPipeline(backendData, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL,
 			VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE,
 			VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT, VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS,
 			VK_SAMPLE_COUNT_1_BIT, dynamiceStates, vertexInput, renderPass, pipelineLayout, shaderStages, pipelineCache);
@@ -177,18 +175,18 @@ void HawkEye::Pipeline::Configure(RendererData rendererData, const char* configF
 		// TODO: Compute version.
 	}
 
-	p_->graphicsQueue = backendData->generalQueues[0];
+	p_->graphicsQueue = backendData.generalQueues[0];
 
-	p_->graphicsSemaphore = VulkanBackend::CreateSemaphore(device);
-	p_->presentSemaphore = VulkanBackend::CreateSemaphore(device);
+	p_->graphicsSemaphore = VulkanBackend::CreateSemaphore(backendData);
+	p_->presentSemaphore = VulkanBackend::CreateSemaphore(backendData);
 	for (int v = 0; v < p_->swapchainImageViews.size(); ++v)
 	{
-		p_->frameFences.push_back(VulkanBackend::CreateFence(device, VK_FENCE_CREATE_SIGNALED_BIT));
+		p_->frameFences.push_back(VulkanBackend::CreateFence(backendData, VK_FENCE_CREATE_SIGNALED_BIT));
 	}
 
-	p_->commandPool = VulkanBackend::CreateCommandPool(device, backendData->generalFamilyIndex);
+	p_->commandPool = VulkanBackend::CreateCommandPool(backendData, backendData.generalFamilyIndex);
 	p_->commandBuffers.resize(p_->swapchainImageViews.size());
-	VulkanBackend::AllocateCommandBuffers(device, p_->commandPool, p_->commandBuffers.data(), (uint32_t)p_->swapchainImageViews.size());
+	VulkanBackend::AllocateCommandBuffers(backendData, p_->commandPool, p_->commandBuffers.data(), (uint32_t)p_->swapchainImageViews.size());
 
 	// Record command buffer.
 	for (int c = 0; c < p_->commandBuffers.size(); ++c)
@@ -244,74 +242,75 @@ void HawkEye::Pipeline::Shutdown()
 {
 	if (p_->backendData)
 	{
-		VkDevice device = p_->backendData->logicalDevice;
+		const VulkanBackend::BackendData& backendData = *p_->backendData;
+		VkDevice device = backendData.logicalDevice;
 		vkDeviceWaitIdle(device);
 
 		if (p_->rasterizationPipeline)
 		{
-			VulkanBackend::DestroyPipeline(device, p_->rasterizationPipeline);
+			VulkanBackend::DestroyPipeline(backendData, p_->rasterizationPipeline);
 		}
 		if (p_->computePipeline)
 		{
-			VulkanBackend::DestroyPipeline(device, p_->computePipeline);
+			VulkanBackend::DestroyPipeline(backendData, p_->computePipeline);
 		}
 
 		for (int s = 0; s < p_->shaderModules.size(); ++s)
 		{
-			VulkanBackend::DestroyShaderModule(device, p_->shaderModules[s]);
+			VulkanBackend::DestroyShaderModule(backendData, p_->shaderModules[s]);
 		}
 		p_->shaderModules.clear();
 
 		if (p_->pipelineLayout)
 		{
-			VulkanBackend::DestroyPipelineLayout(device, p_->pipelineLayout);
+			VulkanBackend::DestroyPipelineLayout(backendData, p_->pipelineLayout);
 		}
 		if (p_->pipelineCache)
 		{
-			VulkanBackend::DestroyPipelineCache(device, p_->pipelineCache);
+			VulkanBackend::DestroyPipelineCache(backendData, p_->pipelineCache);
 		}
 
 		for (int i = 0; i < p_->swapchainImageViews.size(); ++i)
 		{
-			VulkanBackend::DestroyFramebuffer(device, p_->framebuffers[i]);
+			VulkanBackend::DestroyFramebuffer(backendData, p_->framebuffers[i]);
 		}
 		p_->framebuffers.clear();
-		VulkanBackend::DestroyRenderPass(device, p_->renderPass);
+		VulkanBackend::DestroyRenderPass(backendData, p_->renderPass);
 		if (p_->swapchain)
 		{
 			for (int i = 0; i < p_->swapchainImageViews.size(); ++i)
 			{
-				VulkanBackend::DestroyImageView(device, p_->swapchainImageViews[i]);
+				VulkanBackend::DestroyImageView(backendData, p_->swapchainImageViews[i]);
 			}
 			p_->swapchainImageViews.clear();
 			
-			VulkanBackend::DestroySwapchain(device, p_->swapchain);
+			VulkanBackend::DestroySwapchain(backendData, p_->swapchain);
 		}
 		if (p_->surfaceData->surface)
 		{
-			VulkanBackend::DestroySurface(p_->backendData->instance, p_->surfaceData->surface);
+			VulkanBackend::DestroySurface(backendData, p_->surfaceData->surface);
 		}
 
 		if (p_->graphicsSemaphore)
 		{
-			VulkanBackend::DestroySemaphore(device, p_->graphicsSemaphore);
+			VulkanBackend::DestroySemaphore(backendData, p_->graphicsSemaphore);
 		}
 		if (p_->presentSemaphore)
 		{
-			VulkanBackend::DestroySemaphore(device, p_->presentSemaphore);
+			VulkanBackend::DestroySemaphore(backendData, p_->presentSemaphore);
 		}
 		for (int f = 0; f < p_->frameFences.size(); ++f)
 		{
-			VulkanBackend::DestroyFence(device, p_->frameFences[f]);
+			VulkanBackend::DestroyFence(backendData, p_->frameFences[f]);
 		}
 
 		for (int c = 0; c < p_->commandBuffers.size(); ++c)
 		{
-			VulkanBackend::FreeCommandBuffer(device, p_->commandPool, p_->commandBuffers[c]);
+			VulkanBackend::FreeCommandBuffer(backendData, p_->commandPool, p_->commandBuffers[c]);
 		}
 		if (p_->commandPool)
 		{
-			VulkanBackend::DestroyCommandPool(device, p_->commandPool);
+			VulkanBackend::DestroyCommandPool(backendData, p_->commandPool);
 		}
 	}
 }
@@ -323,8 +322,8 @@ void HawkEye::Pipeline::DrawFrame()
 		return;
 	}
 
-	VulkanBackend::BackendData* backendData = p_->backendData;
-	VkDevice device = backendData->logicalDevice;
+	const VulkanBackend::BackendData& backendData = *p_->backendData;
+	VkDevice device = backendData.logicalDevice;
 
 	vkWaitForFences(device, 1, &p_->frameFences[p_->currentFrame], VK_TRUE, UINT64_MAX);
 	vkResetFences(device, 1, &p_->frameFences[p_->currentFrame]);
@@ -376,7 +375,7 @@ void HawkEye::Pipeline::DrawFrame()
 	}
 	VulkanCheck(vkQueueWaitIdle(p_->surfaceData->defaultPresentQueue));
 
-	p_->currentFrame = (p_->currentFrame + 1) % p_->frameFences.size();
+	p_->currentFrame = (p_->currentFrame + 1) % (uint32_t)p_->frameFences.size();
 }
 
 void HawkEye::Pipeline::Resize(int width, int height)
@@ -386,7 +385,7 @@ void HawkEye::Pipeline::Resize(int width, int height)
 		return;
 	}
 
-	VkPhysicalDevice physicalDevice = p_->backendData->physicalDevice;
+	const VulkanBackend::BackendData& backendData = *p_->backendData;
 	VulkanBackend::SurfaceData& surfaceData = *p_->surfaceData.get();
 	VkDevice device = p_->backendData->logicalDevice;
 
@@ -397,23 +396,23 @@ void HawkEye::Pipeline::Resize(int width, int height)
 
 	for (int i = 0; i < p_->swapchainImageViews.size(); ++i)
 	{
-		VulkanBackend::DestroyFramebuffer(device, p_->framebuffers[i]);
+		VulkanBackend::DestroyFramebuffer(backendData, p_->framebuffers[i]);
 	}
 
 	for (int i = 0; i < p_->swapchainImageViews.size(); ++i)
 	{
-		VulkanBackend::DestroyImageView(device, p_->swapchainImageViews[i]);
+		VulkanBackend::DestroyImageView(backendData, p_->swapchainImageViews[i]);
 	}
 
 	if (p_->surfaceData->surface)
 	{
-		VulkanBackend::GetSurfaceCapabilities(physicalDevice, surfaceData);
-		VulkanBackend::GetSurfaceExtent(physicalDevice, surfaceData);
+		VulkanBackend::GetSurfaceCapabilities(backendData, surfaceData);
+		VulkanBackend::GetSurfaceExtent(backendData, surfaceData);
 
 		p_->swapchain = VulkanBackend::RecreateSwapchain(*p_->backendData, surfaceData, p_->swapchain);
 
 		std::vector<VkImage> swapchainImages;
-		VulkanBackend::GetSwapchainImages(device, p_->swapchain, swapchainImages);
+		VulkanBackend::GetSwapchainImages(backendData, p_->swapchain, swapchainImages);
 
 		VkImageSubresourceRange subresourceRange{};
 		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -421,14 +420,14 @@ void HawkEye::Pipeline::Resize(int width, int height)
 		subresourceRange.layerCount = 1;
 		for (int i = 0; i < p_->swapchainImageViews.size(); ++i)
 		{
-			p_->swapchainImageViews[i] = VulkanBackend::CreateImageView2D(device, swapchainImages[i],
+			p_->swapchainImageViews[i] = VulkanBackend::CreateImageView2D(backendData, swapchainImages[i],
 				surfaceData.surfaceFormat.format, subresourceRange);
 		}
 	}
 
 	for (int f = 0; f < p_->framebuffers.size(); ++f)
 	{
-		VkFramebuffer framebuffer = VulkanBackend::CreateFramebuffer(device, width, height, p_->renderPass, { p_->swapchainImageViews[f] });
+		VkFramebuffer framebuffer = VulkanBackend::CreateFramebuffer(backendData, width, height, p_->renderPass, { p_->swapchainImageViews[f] });
 		p_->framebuffers[f] = framebuffer;
 	}
 
