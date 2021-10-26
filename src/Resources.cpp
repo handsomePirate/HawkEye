@@ -40,13 +40,13 @@ VkFormat TranslateFormat(HawkEye::TextureFormat textureFormat, HawkEye::ColorCom
 		switch (textureFormat)
 		{
 		case HawkEye::TextureFormat::Gray:
-			return VK_FORMAT_R8_UINT;
+			return VK_FORMAT_R8_UNORM;
 		case HawkEye::TextureFormat::GrayAlpha:
-			return VK_FORMAT_R8G8_UINT;
+			return VK_FORMAT_R8G8_UNORM;
 		case HawkEye::TextureFormat::RGB:
-			return VK_FORMAT_R8G8B8_UINT;
+			return VK_FORMAT_R8G8B8_UNORM;
 		case HawkEye::TextureFormat::RGBA:
-			return VK_FORMAT_R8G8B8A8_UINT;
+			return VK_FORMAT_R8G8B8A8_UNORM;
 		}
 	}
 	return VK_FORMAT_UNDEFINED;
@@ -172,9 +172,13 @@ HawkEye::HTexture HawkEye::UploadTexture(RendererData rendererData, unsigned cha
 
 	// Wait for fence.
 	vkWaitForFences(device, 1, &backendData.transferFence, VK_FALSE, UINT64_MAX);
-
 	// Reset command buffer.
 	VulkanBackend::ResetCommandPool(backendData, backendData.transferCommandPool);
+	if (generateMips)
+	{
+		VulkanBackend::ResetCommandPool(backendData, backendData.generalCommandPool);
+	}
+	vkResetFences(device, 1, &backendData.transferFence);
 
 	VulkanBackend::DestroyBuffer(backendData, stagingBuffer);
 	VulkanBackend::DestroySemaphore(backendData, mipsSemaphore);

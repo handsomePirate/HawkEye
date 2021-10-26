@@ -4,6 +4,7 @@
 #include <SoftwareCore/Logger.hpp>
 #include <HawkEye/Logger.hpp>
 #include <array>
+#include <chrono>
 
 HawkEye::Pipeline renderingPipeline;
 
@@ -32,6 +33,27 @@ int main(int argc, char* argv[])
 
 	HawkEye::RendererData rendererData = HawkEye::Initialize(backendConfigFile.c_str());
 
+	// | R | R | G | G |
+	// | R | R | G | G |
+	// | B | B |   |   |
+	// | B | B |   |   |
+
+	constexpr int width = 4096;
+	constexpr int height = 4096;
+	constexpr int dataSize = width * height * 4;
+	std::vector<unsigned char> image(dataSize);
+	for (int y = 0; y < height; ++y)
+	{
+		for (int x = 0; x < width; ++x)
+		{
+			int level = (int)std::round(x * 255 / (float)(width - 1));
+			image[(y * width + x) * 4 + 0] = level;
+			image[(y * width + x) * 4 + 1] = level;
+			image[(y * width + x) * 4 + 2] = level;
+			image[(y * width + x) * 4 + 3] = 255;
+		}
+	}
+
 	EverViewport::WindowCallbacks windowCallbacks{Render, Resize};
 	const int windowWidth = 720;
 	const int windowHeight = 480;
@@ -40,38 +62,14 @@ int main(int argc, char* argv[])
 	renderingPipeline.Configure(rendererData, frontendConfigFile.c_str(), windowWidth, windowHeight,
 		testWindow.GetWindowHandle(), testWindow.GetProgramConnection());
 
-	
-	// | R | R | G | G |
-	// | R | R | G | G |
-	// | B | B |   |   |
-	// | B | B |   |   |
-
-	std::array<unsigned char, 64> image =
-	{
-		255, 0, 0, 255,
-		0, 255, 0, 255,
-		0, 255, 0, 255,
-		0, 255, 0, 255,
-
-		0, 255, 0, 255,
-		255, 0, 0, 255,
-		0, 255, 0, 255,
-		0, 255, 0, 255,
-
-
-		0, 0, 255, 255,
-		0, 0, 255, 255,
-		255, 0, 0, 255,
-		255, 0, 0, 255,
-
-		0, 0, 255, 255,
-		0, 0, 255, 255,
-		255, 0, 0, 255,
-		255, 0, 0, 255
-	};
-
-	HawkEye::HTexture texture = HawkEye::UploadTexture(rendererData, image.data(), (int)image.size(), 4, 4, HawkEye::TextureFormat::RGBA,
+	auto start = std::chrono::high_resolution_clock::now();
+	HawkEye::HTexture texture1 = HawkEye::UploadTexture(rendererData, image.data(), (int)image.size(), width, height, HawkEye::TextureFormat::RGBA,
 		HawkEye::ColorCompression::SRGB, HawkEye::TextureCompression::None, true);
+	auto end = std::chrono::high_resolution_clock::now();
+	HawkEye::HTexture texture2 = HawkEye::UploadTexture(rendererData, image.data(), (int)image.size(), width, height, HawkEye::TextureFormat::RGBA,
+		HawkEye::ColorCompression::None, HawkEye::TextureCompression::None, true);
+
+	CoreLogDebug(VulkanLogger, "Test: Texture uploaded in %lld ms.", std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
 
 	while (!testWindow.ShouldClose())
 	{
@@ -79,7 +77,8 @@ int main(int argc, char* argv[])
 		renderingPipeline.DrawFrame();
 	}
 
-	HawkEye::DeleteTexture(rendererData, texture);
+	HawkEye::DeleteTexture(rendererData, texture1);
+	HawkEye::DeleteTexture(rendererData, texture2);
 
 
 	renderingPipeline.Shutdown();
