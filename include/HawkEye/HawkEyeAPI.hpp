@@ -44,7 +44,14 @@ namespace HawkEye
 		None
 	};
 
+	enum class TextureUsage
+	{
+		General,
+		Compute
+	};
+
 	HTexture UploadTexture(RendererData rendererData, unsigned char* data, int dataSize, int width, int height,
-		TextureFormat format, ColorCompression colorCompression, TextureCompression textureCompression, bool generateMips);
+		TextureFormat format, ColorCompression colorCompression, TextureCompression textureCompression,
+		bool generateMips, TextureUsage usage = TextureUsage::General);
 	void DeleteTexture(RendererData rendererData, HTexture& texture);
 }

@@ -62,14 +62,19 @@ int main(int argc, char* argv[])
 	renderingPipeline.Configure(rendererData, frontendConfigFile.c_str(), windowWidth, windowHeight,
 		testWindow.GetWindowHandle(), testWindow.GetProgramConnection());
 
+	std::array<HawkEye::HTexture, 1> textures;
 	auto start = std::chrono::high_resolution_clock::now();
-	HawkEye::HTexture texture1 = HawkEye::UploadTexture(rendererData, image.data(), (int)image.size(), width, height, HawkEye::TextureFormat::RGBA,
-		HawkEye::ColorCompression::SRGB, HawkEye::TextureCompression::None, true);
+	for (int t = 0; t < textures.size(); ++t)
+	{
+		textures[t] = HawkEye::UploadTexture(rendererData, image.data(), (int)image.size(), width, height, HawkEye::TextureFormat::RGBA,
+			HawkEye::ColorCompression::SRGB, HawkEye::TextureCompression::None, false);
+	}
 	auto end = std::chrono::high_resolution_clock::now();
-	HawkEye::HTexture texture2 = HawkEye::UploadTexture(rendererData, image.data(), (int)image.size(), width, height, HawkEye::TextureFormat::RGBA,
-		HawkEye::ColorCompression::None, HawkEye::TextureCompression::None, true);
 
-	CoreLogDebug(VulkanLogger, "Test: Texture uploaded in %lld ms.", std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
+	CoreLogInfo(VulkanLogger, "Test: %lld textures uploaded in %lld ms.", textures.size(),
+		std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
+
+	return 0;
 
 	while (!testWindow.ShouldClose())
 	{
@@ -77,9 +82,10 @@ int main(int argc, char* argv[])
 		renderingPipeline.DrawFrame();
 	}
 
-	HawkEye::DeleteTexture(rendererData, texture1);
-	HawkEye::DeleteTexture(rendererData, texture2);
-
+	for (int t = 0; t < textures.size(); ++t)
+	{
+		HawkEye::DeleteTexture(rendererData, textures[t]);
+	}
 
 	renderingPipeline.Shutdown();
 
