@@ -46,7 +46,7 @@ HawkEye::Pipeline::~Pipeline()
 	delete p_;
 }
 
-void HawkEye::Pipeline::Configure(RendererData rendererData, const char* configFile, int width, int height,
+void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* configFile, int width, int height,
 	void* windowHandle, void* windowConnection)
 {
 	const VulkanBackend::BackendData& backendData = *(VulkanBackend::BackendData*)rendererData;

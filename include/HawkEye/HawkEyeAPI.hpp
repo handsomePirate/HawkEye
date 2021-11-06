@@ -2,9 +2,9 @@
 
 namespace HawkEye
 {
-	typedef struct RendererData_t* RendererData;
+	typedef struct HRendererData_t* HRendererData;
 
-	RendererData Initialize(const char* backendConfigFile);
+	HRendererData Initialize(const char* backendConfigFile);
 	void Shutdown();
 
 	class Pipeline
@@ -13,7 +13,8 @@ namespace HawkEye
 		Pipeline();
 		~Pipeline();
 
-		void Configure(RendererData rendererData, const char* configFile, int width, int height,
+		// TODO: Vertex attributes.
+		void Configure(HRendererData rendererData, const char* configFile, int width, int height,
 			void* windowHandle = nullptr, void* windowConnection = nullptr);
 		void Shutdown();
 
@@ -23,6 +24,8 @@ namespace HawkEye
 		struct Private;
 		Private* p_;
 	};
+
+	// ======================== Textures =======================
 
 	typedef struct HTexture_t* HTexture;
 	enum class TextureFormat
@@ -44,14 +47,53 @@ namespace HawkEye
 		None
 	};
 
-	enum class TextureUsage
+	enum class TextureQueue
 	{
 		General,
 		Compute
 	};
 
-	HTexture UploadTexture(RendererData rendererData, unsigned char* data, int dataSize, int width, int height,
+	HTexture UploadTexture(HRendererData rendererData, void* data, int dataSize, int width, int height,
 		TextureFormat format, ColorCompression colorCompression, TextureCompression textureCompression,
-		bool generateMips, TextureUsage usage = TextureUsage::General);
-	void DeleteTexture(RendererData rendererData, HTexture& texture);
+		bool generateMips, TextureQueue usage = TextureQueue::General);
+	void DeleteTexture(HRendererData rendererData, HTexture& texture);
+
+	void WaitForUpload(HRendererData rendererData, HTexture texture);
+	bool UploadFinished(HRendererData rendererData, HTexture texture);
+
+	// ======================== Buffers ========================
+
+	typedef struct HBuffer_t* HBuffer;
+	enum class BufferUsage
+	{
+		Vertex,
+		Index,
+		Uniform,
+		Storage
+	};
+
+	enum class BufferType
+	{
+		Mapped,
+		DeviceLocal
+	};
+
+	enum class BufferQueue
+	{
+		General,
+		Compute
+	};
+
+	HBuffer UploadBuffer(HRendererData rendererData, void* data, int dataSize, BufferUsage usage, BufferType type,
+		BufferQueue bufferQueue = BufferQueue::General);
+	void DeleteBuffer(HRendererData rendererData, HBuffer& buffer);
+
+	void UpdateBuffer(HRendererData rendererData, HBuffer buffer, void* data, int dataSize);
+
+	void WaitForUpload(HRendererData rendererData, HBuffer buffer);
+	bool UploadFinished(HRendererData rendererData, HBuffer buffer);
+
+	// Index buffer.
+	// Uniform buffer.
+	// Storage buffer.
 }

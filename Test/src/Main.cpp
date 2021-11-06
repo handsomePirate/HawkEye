@@ -31,7 +31,7 @@ int main(int argc, char* argv[])
 
 	VulkanLogger.SetNewOutput(&Print);
 
-	HawkEye::RendererData rendererData = HawkEye::Initialize(backendConfigFile.c_str());
+	HawkEye::HRendererData rendererData = HawkEye::Initialize(backendConfigFile.c_str());
 
 	// | R | R | G | G |
 	// | R | R | G | G |
@@ -63,25 +63,39 @@ int main(int argc, char* argv[])
 		testWindow.GetWindowHandle(), testWindow.GetProgramConnection());
 
 	std::array<HawkEye::HTexture, 1> textures;
-	auto start = std::chrono::high_resolution_clock::now();
 	for (int t = 0; t < textures.size(); ++t)
 	{
 		textures[t] = HawkEye::UploadTexture(rendererData, image.data(), (int)image.size(), width, height, HawkEye::TextureFormat::RGBA,
 			HawkEye::ColorCompression::SRGB, HawkEye::TextureCompression::None, false);
 	}
-	auto end = std::chrono::high_resolution_clock::now();
-
-	CoreLogInfo(VulkanLogger, "Test: %lld textures uploaded in %lld ms.", textures.size(),
-		std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
-
-	return 0;
-
+	/*
+	std::array<HawkEye::HBuffer, 2> buffers;
+	constexpr int vertexCount = 3;
+	constexpr int vertexFloatCount = vertexCount * 3;
+	constexpr int vertexBufferSize = vertexFloatCount * sizeof(float);
+	std::vector<float> vertexBuffer = 
+	{
+		-1.f, 0.f, 0.f,
+		1.f, 0.f, 0.f,
+		-1.f, 2.f, 0.f
+	};
+	buffers[0] = HawkEye::UploadBuffer(rendererData, vertexBuffer.data(), (int)vertexBuffer.size(),
+		HawkEye::BufferUsage::Vertex, HawkEye::BufferType::DeviceLocal);
+	int uniformData = 1;
+	buffers[1] = HawkEye::UploadBuffer(rendererData, &uniformData, sizeof(int), HawkEye::BufferUsage::Uniform,
+		HawkEye::BufferType::Mapped);
+	*/
 	while (!testWindow.ShouldClose())
 	{
 		testWindow.PollMessages();
 		renderingPipeline.DrawFrame();
 	}
-
+	/*
+	for (int b = 0; b < buffers.size(); ++b)
+	{
+		HawkEye::DeleteBuffer(rendererData, buffers[b]);
+	}
+	*/
 	for (int t = 0; t < textures.size(); ++t)
 	{
 		HawkEye::DeleteTexture(rendererData, textures[t]);

@@ -3,10 +3,10 @@
 
 static VulkanBackend::BackendData backendData{};
 
-HawkEye::RendererData HawkEye::Initialize(const char* backendConfigFile)
+HawkEye::HRendererData HawkEye::Initialize(const char* backendConfigFile)
 {
     backendData = VulkanBackend::Initialize(backendConfigFile);
-    return (HawkEye::RendererData)&backendData;
+    return (HawkEye::HRendererData)&backendData;
 }
 
 void HawkEye::Shutdown()
