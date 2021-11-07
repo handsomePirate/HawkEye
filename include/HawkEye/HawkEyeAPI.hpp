@@ -18,6 +18,14 @@ namespace HawkEye
 			void* windowHandle = nullptr, void* windowConnection = nullptr);
 		void Shutdown();
 
+		struct DrawBuffer
+		{
+			HBuffer* vertexBuffer;
+			HBuffer* indexBuffer;
+		};
+
+		void UseBuffers(DrawBuffer* drawBuffers, int bufferCount);
+
 		void DrawFrame();
 		void Resize(int width, int height);
 	private:
@@ -92,8 +100,4 @@ namespace HawkEye
 
 	void WaitForUpload(HRendererData rendererData, HBuffer buffer);
 	bool UploadFinished(HRendererData rendererData, HBuffer buffer);
-
-	// Index buffer.
-	// Uniform buffer.
-	// Storage buffer.
 }

@@ -315,6 +315,11 @@ void HawkEye::Pipeline::Shutdown()
 	}
 }
 
+void HawkEye::Pipeline::UseBuffers(DrawBuffer* drawBuffers, int bufferCount)
+{
+	
+}
+
 void HawkEye::Pipeline::DrawFrame()
 {
 	if (!p_->backendData || p_->surfaceData->width == 0 || p_->surfaceData->height == 0)
@@ -427,7 +432,8 @@ void HawkEye::Pipeline::Resize(int width, int height)
 
 	for (int f = 0; f < p_->framebuffers.size(); ++f)
 	{
-		VkFramebuffer framebuffer = VulkanBackend::CreateFramebuffer(backendData, width, height, p_->renderPass, { p_->swapchainImageViews[f] });
+		VkFramebuffer framebuffer = VulkanBackend::CreateFramebuffer(backendData, width, height, p_->renderPass,
+			{ p_->swapchainImageViews[f] });
 		p_->framebuffers[f] = framebuffer;
 	}
 
