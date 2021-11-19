@@ -88,14 +88,7 @@ int main(int argc, char* argv[])
 		renderingPipeline.DrawFrame();
 	}
 
-	// Releasing resources.
-	renderingPipeline.UseBuffers(nullptr, 0);
-
-	// Waiting for frames in flight to finish using the resources.
-	for (int f = 0; f < renderingPipeline.GetFramesInFlight(); ++f)
-	{
-		renderingPipeline.DrawFrame();
-	}
+	renderingPipeline.ReleaseResources();
 
 	HawkEye::DeleteBuffer(rendererData, vertexBuffer);
 

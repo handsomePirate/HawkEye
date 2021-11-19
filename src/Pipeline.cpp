@@ -439,6 +439,18 @@ void HawkEye::Pipeline::Resize(int width, int height)
 	}
 }
 
+void HawkEye::Pipeline::ReleaseResources()
+{
+	// Stop using buffer resources.
+	UseBuffers(nullptr, 0);
+
+	// Wait for frames in flight to finish using the resources.
+	for (int f = 0; f < GetFramesInFlight(); ++f)
+	{
+		DrawFrame();
+	}
+}
+
 uint64_t HawkEye::Pipeline::GetPresentedFrame() const
 {
 	return p_->currentFrame;

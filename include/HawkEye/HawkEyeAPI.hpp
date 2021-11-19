@@ -31,7 +31,8 @@ namespace HawkEye
 		void DrawFrame();
 		void Resize(int width, int height);
 
-		// TODO: Reset function to break resource references.
+		// Unlock all resources used by the pipeline. They can be deleted afterwards.
+		void ReleaseResources();
 
 		uint64_t GetPresentedFrame() const;
 		uint64_t GetFramesInFlight() const;
