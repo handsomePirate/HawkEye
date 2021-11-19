@@ -98,17 +98,28 @@ int main(int argc, char* argv[])
 	HawkEye::HBuffer vertexBuffer1 = HawkEye::UploadBuffer(rendererData, vertexBufferData1.data(), (int)vertexBufferData1.size() * sizeof(float),
 		HawkEye::BufferUsage::Vertex, HawkEye::BufferType::DeviceLocal);
 
+	std::vector<uint32_t> indexBufferData =
+	{
+		0, 1, 2
+	};
+	HawkEye::HBuffer indexBuffer = HawkEye::UploadBuffer(rendererData, indexBufferData.data(), (int)indexBufferData.size() * sizeof(uint32_t),
+		HawkEye::BufferUsage::Index, HawkEye::BufferType::DeviceLocal);
+
 	HawkEye::Pipeline::DrawBuffer drawBuffers[2] =
 	{
 		{ vertexBuffer0, nullptr },
-		{ vertexBuffer1, nullptr }
+		{ vertexBuffer1, indexBuffer }
 	};
 
-	renderingPipeline.UseBuffers(&drawBuffers[0], 1);
+	renderingPipeline.UseBuffers(drawBuffers, 2);
+
+	//uint32_t test = 0;
 
 	while (!testWindow.ShouldClose())
 	{
 		testWindow.PollMessages();
+		//renderingPipeline.UseBuffers(&drawBuffers[test], 1);
+		//test = (test + 1) % 2;
 		renderingPipeline.DrawFrame();
 	}
 
@@ -116,6 +127,7 @@ int main(int argc, char* argv[])
 
 	HawkEye::DeleteBuffer(rendererData, vertexBuffer0);
 	HawkEye::DeleteBuffer(rendererData, vertexBuffer1);
+	HawkEye::DeleteBuffer(rendererData, indexBuffer);
 
 	for (int t = 0; t < textures.size(); ++t)
 	{

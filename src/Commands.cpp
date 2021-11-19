@@ -72,6 +72,7 @@ void RecordCommands(int c, const VulkanBackend::BackendData& backendData, HawkEy
 		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &pipelineData->drawBuffers[b].vertexBuffer->buffer.buffer, &offset);
 		if (pipelineData->drawBuffers[b].indexBuffer)
 		{
+			vkCmdBindIndexBuffer(commandBuffer, pipelineData->drawBuffers[b].indexBuffer->buffer.buffer, offset, VK_INDEX_TYPE_UINT32);
 			vkCmdDrawIndexed(commandBuffer, pipelineData->drawBuffers[b].indexBuffer->dataSize / 4, 1, 0, 0, 0);
 		}
 		else
