@@ -15,6 +15,14 @@ void Print(const char* message, Core::LoggerSeverity severity)
 	printf(message);
 }
 
+#ifdef _WIN32
+#include <Windows.h>
+void PrintWin32(const char* message, Core::LoggerSeverity severity)
+{
+	OutputDebugStringA(message);
+}
+#endif
+
 void Render()
 {
 	renderingPipeline.DrawFrame();
@@ -34,6 +42,9 @@ int main(int argc, char* argv[])
 	auto frontendConfigFile = filesystem.GetAbsolutePath("../../testfile.yml");
 
 	VulkanLogger.SetNewOutput(&Print);
+#ifdef _WIN32
+	VulkanLogger.SetNewOutput(&PrintWin32);
+#endif
 
 	// Renderer data.
 
