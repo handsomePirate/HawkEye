@@ -69,18 +69,31 @@ int main(int argc, char* argv[])
 			HawkEye::ColorCompression::SRGB, HawkEye::TextureCompression::None, false);
 	}
 	
-	std::vector<float> vertexBufferData = 
+	std::vector<float> vertexBufferData0 = 
 	{
 		-1.f, -1.f, 0.f,
 		1.f, -1.f, 0.f,
 		-1.f, 1.f, 0.f
 	};
-	HawkEye::HBuffer vertexBuffer = HawkEye::UploadBuffer(rendererData, vertexBufferData.data(), (int)vertexBufferData.size() * sizeof(float),
+	HawkEye::HBuffer vertexBuffer0 = HawkEye::UploadBuffer(rendererData, vertexBufferData0.data(), (int)vertexBufferData0.size() * sizeof(float),
 		HawkEye::BufferUsage::Vertex, HawkEye::BufferType::DeviceLocal);
-	
-	HawkEye::Pipeline::DrawBuffer drawBuffer{ vertexBuffer, nullptr };
 
-	renderingPipeline.UseBuffers(&drawBuffer, 1);
+	std::vector<float> vertexBufferData1 =
+	{
+		1.f, -1.f, 0.f,
+		1.f, 1.f, 0.f,
+		-1.f, 1.f, 0.f,
+	};
+	HawkEye::HBuffer vertexBuffer1 = HawkEye::UploadBuffer(rendererData, vertexBufferData1.data(), (int)vertexBufferData1.size() * sizeof(float),
+		HawkEye::BufferUsage::Vertex, HawkEye::BufferType::DeviceLocal);
+
+	HawkEye::Pipeline::DrawBuffer drawBuffers[2] =
+	{
+		{ vertexBuffer0, nullptr },
+		{ vertexBuffer1, nullptr }
+	};
+
+	renderingPipeline.UseBuffers(&drawBuffers[0], 1);
 
 	while (!testWindow.ShouldClose())
 	{
@@ -90,7 +103,8 @@ int main(int argc, char* argv[])
 
 	renderingPipeline.ReleaseResources();
 
-	HawkEye::DeleteBuffer(rendererData, vertexBuffer);
+	HawkEye::DeleteBuffer(rendererData, vertexBuffer0);
+	HawkEye::DeleteBuffer(rendererData, vertexBuffer1);
 
 	for (int t = 0; t < textures.size(); ++t)
 	{
