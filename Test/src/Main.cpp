@@ -8,6 +8,8 @@
 
 HawkEye::Pipeline renderingPipeline;
 
+// Callbacks.
+
 void Print(const char* message, Core::LoggerSeverity severity)
 {
 	printf(message);
@@ -25,18 +27,31 @@ void Resize(int width, int height)
 
 int main(int argc, char* argv[])
 {
+	// Filesystem.
+
 	Core::Filesystem filesystem(argv[0]);
 	auto backendConfigFile = filesystem.GetAbsolutePath("../../../ext/VulkanBackend/Test/testfile.yml");
 	auto frontendConfigFile = filesystem.GetAbsolutePath("../../testfile.yml");
 
 	VulkanLogger.SetNewOutput(&Print);
 
+	// Renderer data.
+
 	HawkEye::HRendererData rendererData = HawkEye::Initialize(backendConfigFile.c_str());
 
-	// | R | R | G | G |
-	// | R | R | G | G |
-	// | B | B |   |   |
-	// | B | B |   |   |
+	// Window.
+
+	EverViewport::WindowCallbacks windowCallbacks{Render, Resize};
+	const int windowWidth = 720;
+	const int windowHeight = 480;
+	EverViewport::Window testWindow(50, 50, windowWidth, windowHeight, "test", windowCallbacks);
+	
+	// Pipeline.
+
+	renderingPipeline.Configure(rendererData, frontendConfigFile.c_str(), windowWidth, windowHeight,
+		testWindow.GetWindowHandle(), testWindow.GetProgramConnection());
+
+	// Texture (gradient).
 
 	constexpr int width = 4096;
 	constexpr int height = 4096;
@@ -54,20 +69,14 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	EverViewport::WindowCallbacks windowCallbacks{Render, Resize};
-	const int windowWidth = 720;
-	const int windowHeight = 480;
-	EverViewport::Window testWindow(50, 50, windowWidth, windowHeight, "test", windowCallbacks);
-	
-	renderingPipeline.Configure(rendererData, frontendConfigFile.c_str(), windowWidth, windowHeight,
-		testWindow.GetWindowHandle(), testWindow.GetProgramConnection());
-
 	std::array<HawkEye::HTexture, 1> textures;
 	for (int t = 0; t < textures.size(); ++t)
 	{
 		textures[t] = HawkEye::UploadTexture(rendererData, image.data(), (int)image.size(), width, height, HawkEye::TextureFormat::RGBA,
 			HawkEye::ColorCompression::SRGB, HawkEye::TextureCompression::None, false);
 	}
+
+	// Vertex and index buffers.
 	
 	std::vector<float> vertexBufferData0 = 
 	{
@@ -113,6 +122,8 @@ int main(int argc, char* argv[])
 
 	renderingPipeline.UseBuffers(drawBuffers, 2);
 
+	// Rendering loop.
+
 	//uint32_t test = 0;
 
 	while (!testWindow.ShouldClose())
@@ -122,6 +133,8 @@ int main(int argc, char* argv[])
 		//test = (test + 1) % 2;
 		renderingPipeline.DrawFrame();
 	}
+
+	// Releasing of resources.
 
 	renderingPipeline.ReleaseResources();
 
