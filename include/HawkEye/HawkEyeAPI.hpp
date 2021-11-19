@@ -1,8 +1,11 @@
 #pragma once
+#include <cstdint>
 
 namespace HawkEye
 {
 	typedef struct HRendererData_t* HRendererData;
+	typedef struct HTexture_t* HTexture;
+	typedef struct HBuffer_t* HBuffer;
 
 	HRendererData Initialize(const char* backendConfigFile);
 	void Shutdown();
@@ -13,29 +16,34 @@ namespace HawkEye
 		Pipeline();
 		~Pipeline();
 
-		// TODO: Vertex attributes.
 		void Configure(HRendererData rendererData, const char* configFile, int width, int height,
 			void* windowHandle = nullptr, void* windowConnection = nullptr);
 		void Shutdown();
 
 		struct DrawBuffer
 		{
-			HBuffer* vertexBuffer;
-			HBuffer* indexBuffer;
+			HBuffer vertexBuffer;
+			HBuffer indexBuffer;
 		};
-
+		
 		void UseBuffers(DrawBuffer* drawBuffers, int bufferCount);
 
 		void DrawFrame();
 		void Resize(int width, int height);
-	private:
+
+		// TODO: Reset function to break resource references.
+
+		uint64_t GetPresentedFrame() const;
+		uint64_t GetFramesInFlight() const;
+
+		uint64_t GetUUID() const;
+
 		struct Private;
 		Private* p_;
 	};
 
 	// ======================== Textures =======================
 
-	typedef struct HTexture_t* HTexture;
 	enum class TextureFormat
 	{
 		Gray,
@@ -71,7 +79,6 @@ namespace HawkEye
 
 	// ======================== Buffers ========================
 
-	typedef struct HBuffer_t* HBuffer;
 	enum class BufferUsage
 	{
 		Vertex,

@@ -1,24 +1,8 @@
 #include "HawkEye/HawkEyeAPI.hpp"
+#include "Resources.hpp"
 #include <VulkanBackend/ErrorCheck.hpp>
 #include <VulkanBackend/VulkanBackendAPI.hpp>
 #include <vulkan/vulkan.hpp>
-
-struct HawkEye::HTexture_t
-{
-	VulkanBackend::Image image;
-	VkImageView imageView = VK_NULL_HANDLE;
-	VkSampler sampler = VK_NULL_HANDLE;
-	VkImageLayout imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	VkFence uploadFence = VK_NULL_HANDLE;
-	VkCommandBuffer transferCommandBuffer = VK_NULL_HANDLE;
-	VkCommandBuffer generalCommandBuffer = VK_NULL_HANDLE;
-	VulkanBackend::Buffer stagingBuffer{};
-	VkSemaphore operationSemaphore = VK_NULL_HANDLE;
-	VkSemaphore uploadSemaphore = VK_NULL_HANDLE;
-	int queueOwnership = -1;
-	int mipCount = 1;
-	TextureQueue currentUsage;
-};
 
 int GetMipCount(int width, int height)
 {
@@ -234,16 +218,6 @@ bool HawkEye::UploadFinished(HRendererData rendererData, HTexture texture)
 	return status == VK_SUCCESS;
 }
 
-struct HawkEye::HBuffer_t
-{
-	VulkanBackend::Buffer buffer{};
-	VkFence uploadFence = VK_NULL_HANDLE;
-	VkCommandBuffer transferCommandBuffer = VK_NULL_HANDLE;
-	VulkanBackend::Buffer stagingBuffer{};
-	void* mappedBuffer = nullptr;
-	int dataSize = 0;
-};
-
 HawkEye::HBuffer HawkEye::UploadBuffer(HRendererData rendererData, void* data, int dataSize, BufferUsage usage,
 	BufferType type, BufferQueue bufferQueue)
 {
@@ -309,7 +283,11 @@ HawkEye::HBuffer HawkEye::UploadBuffer(HRendererData rendererData, void* data, i
 	VulkanBackend::CopyBufferToBuffer(backendData, buffer->stagingBuffer.buffer, buffer->buffer.buffer, dataSize,
 		buffer->transferCommandBuffer);
 
-	// TODO: Barrier to transfer ownership.
+	int nextQueueIndex = bufferQueue == BufferQueue::General ? backendData.generalFamilyIndex : backendData.computeFamilyIndex;
+	VulkanBackend::ReleaseBufferOwnership(backendData, buffer->transferCommandBuffer, buffer->stagingBuffer.buffer, dataSize, 0,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+		backendData.transferFamilyIndex, nextQueueIndex);
+	buffer->currentFamilyIndex = backendData.transferFamilyIndex;
 
 	VulkanCheck(vkEndCommandBuffer(buffer->transferCommandBuffer));
 

@@ -1,7 +1,6 @@
-#include "HawkEye/HawkEyeAPI.hpp"
-#include "YAMLConfiguration.hpp"
+#include "Pipeline.hpp"
+#include "Resources.hpp"
 #include <VulkanBackend/Logger.hpp>
-#include <VulkanBackend/VulkanBackendAPI.hpp>
 #include <VulkanBackend/ErrorCheck.hpp>
 #define CompilerLogger VulkanLogger
 #include <VulkanShaderCompiler/Logger.hpp>
@@ -9,40 +8,6 @@
 #include <SoftwareCore/Filesystem.hpp>
 #include <yaml-cpp/yaml.h>
 #include <memory>
-
-struct FrameData
-{
-	bool dirty = true;
-	VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
-};
-
-struct HawkEye::Pipeline::Private
-{
-	// TODO: Currently only one layer supported.
-	std::vector<PipelineLayer> layers;
-	VulkanBackend::BackendData* backendData = nullptr;
-	std::unique_ptr<VulkanBackend::SurfaceData> surfaceData = nullptr;
-	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-	std::vector<VkImageView> swapchainImageViews;
-	VkRenderPass renderPass = VK_NULL_HANDLE;
-	std::vector<VkFramebuffer> framebuffers;
-	VkPipelineCache pipelineCache = VK_NULL_HANDLE;
-	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	std::vector<VkShaderModule> shaderModules;
-	VkPipeline computePipeline = VK_NULL_HANDLE;
-	VkPipeline rasterizationPipeline = VK_NULL_HANDLE;
-	VkQueue graphicsQueue = VK_NULL_HANDLE;
-	VkQueue computeQueue = VK_NULL_HANDLE;
-	VkSemaphore graphicsSemaphore = VK_NULL_HANDLE;
-	VkSemaphore presentSemaphore = VK_NULL_HANDLE;
-	std::vector<VkFence> frameFences;
-	VkCommandPool commandPool = VK_NULL_HANDLE;
-	std::vector<FrameData> frameData;
-	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
-	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-	uint32_t currentFrame = 0;
-};
 
 HawkEye::Pipeline::Pipeline()
 	: p_(new Private) {}
@@ -52,6 +17,11 @@ HawkEye::Pipeline::~Pipeline()
 	delete p_;
 }
 
+VkFormat GetAttributeFormat(const PipelinePass::VertexAttribute& vertexAttribute)
+{
+	return (VkFormat)(VK_FORMAT_R32_UINT + (vertexAttribute.byteCount / 4 - 1) * 3 + (int)vertexAttribute.type);
+}
+
 void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* configFile, int width, int height,
 	void* windowHandle, void* windowConnection)
 {
@@ -59,23 +29,23 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	
 	YAML::Node configData = YAML::LoadFile(configFile);
 
-	auto& layers = p_->layers;
-	if (configData["Layers"])
+	auto& passes = p_->passes;
+	if (configData["Passes"])
 	{
-		if (!configData["Layers"].IsSequence())
+		if (!configData["Passes"].IsSequence())
 		{
-			CoreLogError(VulkanLogger, "Pipeline: Wrong format for layers.");
+			CoreLogError(VulkanLogger, "Pipeline: Wrong format for passes.");
 			return;
 		}
 
-		for (int l = 0; l < configData["Layers"].size(); ++l)
+		for (int l = 0; l < configData["Passes"].size(); ++l)
 		{
-			layers.push_back(ConfigureLayer(configData["Layers"][l]));
+			passes.push_back(ConfigureLayer(configData["Passes"][l]));
 		}
 	}
 	else
 	{
-		CoreLogWarn(VulkanLogger, "Pipeline: Configuration missing layers.");
+		CoreLogWarn(VulkanLogger, "Pipeline: Configuration missing passes.");
 	}
 
 	// TODO: Make offscreen rendering supported.
@@ -143,7 +113,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	VulkanCheck(vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &pipelineLayout));
 	p_->pipelineLayout = pipelineLayout;
 
-	if (layers[0].type == PipelineLayer::Type::Rasterized)
+	if (passes[0].type == PipelinePass::Type::Rasterized)
 	{
 		// TODO: Sample count.
 		std::vector<VkDynamicState> dynamiceStates =
@@ -151,8 +121,31 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 			VK_DYNAMIC_STATE_SCISSOR,
 			VK_DYNAMIC_STATE_VIEWPORT
 		};
+
+		std::vector<VkVertexInputAttributeDescription> vertexAttributeDescriptions(passes[0].attributes.size());
+		int vertexSize = 0;
+		for (int a = 0; a < passes[0].attributes.size(); ++a)
+		{
+			vertexAttributeDescriptions[a].binding = 0;
+			// TODO: Make format conform to what the input was.
+			vertexAttributeDescriptions[a].format = GetAttributeFormat(passes[0].attributes[a]);
+			vertexAttributeDescriptions[a].location = a;
+			vertexAttributeDescriptions[a].offset = vertexSize;
+			vertexSize += passes[0].attributes[a].byteCount;
+		}
+
+		VkVertexInputBindingDescription vertexBindingDescription{};
+		vertexBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		vertexBindingDescription.stride = vertexSize;
+		vertexBindingDescription.binding = 0;
+
 		VkPipelineVertexInputStateCreateInfo vertexInput{};
 		vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		// TODO: Split attributes into multiple buffers.
+		vertexInput.vertexBindingDescriptionCount = 1;
+		vertexInput.pVertexBindingDescriptions = &vertexBindingDescription;
+		vertexInput.vertexAttributeDescriptionCount = (uint32_t)vertexAttributeDescriptions.size();
+		vertexInput.pVertexAttributeDescriptions = vertexAttributeDescriptions.data();
 
 		std::vector<VkPipelineShaderStageCreateInfo> shaderStages(2);
 		shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -162,13 +155,10 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 		shaderStages[1].pName = "main";
 
-		for (int s = 0; s < layers[0].shaders.size(); ++s)
+		for (int s = 0; s < passes[0].shaders.size(); ++s)
 		{
-			shaderStages[0].module = VulkanShaderCompiler::Compile(device, layers[0].shaders[0].second.c_str());
-			p_->shaderModules.push_back(shaderStages[0].module);
-
-			shaderStages[1].module = VulkanShaderCompiler::Compile(device, layers[0].shaders[1].second.c_str());
-			p_->shaderModules.push_back(shaderStages[1].module);
+			shaderStages[s].module = VulkanShaderCompiler::Compile(device, passes[0].shaders[s].second.c_str());
+			p_->shaderModules.push_back(shaderStages[s].module);
 		}
 
 		p_->rasterizationPipeline = VulkanBackend::CreateGraphicsPipeline(backendData, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL,
@@ -190,65 +180,18 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		p_->frameFences.push_back(VulkanBackend::CreateFence(backendData, VK_FENCE_CREATE_SIGNALED_BIT));
 	}
 
-	p_->commandPool = VulkanBackend::CreateCommandPool(backendData, backendData.generalFamilyIndex);
+	p_->commandPool = VulkanBackend::CreateCommandPool(backendData, backendData.generalFamilyIndex,
+		VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 	p_->frameData.resize(p_->swapchainImageViews.size());
+
 	std::vector<VkCommandBuffer> commandBuffers(p_->swapchainImageViews.size());
+
 	VulkanBackend::AllocateCommandBuffers(backendData, p_->commandPool, commandBuffers.data(), (uint32_t)p_->swapchainImageViews.size());
 
-	for (int f = 0; f < p_->swapchainImageViews.size(); ++f)
-	{
-		p_->frameData[f].commandBuffer = commandBuffers[f];
-	}
-
-	// Record command buffer.
 	for (int c = 0; c < p_->frameData.size(); ++c)
 	{
-		VkCommandBuffer commandBuffer = p_->frameData[c].commandBuffer;
-
-		VkCommandBufferBeginInfo commandBufferBeginInfo{};
-		commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-		VulkanCheck(vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo));
-
-		VkClearValue clearValues[1];
-		clearValues[0].color = { 0.f, 0.f, 0.f };
-
-		VkRenderPassBeginInfo renderPassBeginInfo{};
-		renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassBeginInfo.renderPass = renderPass;
-		renderPassBeginInfo.renderArea.extent.width = width;
-		renderPassBeginInfo.renderArea.extent.height = height;
-		renderPassBeginInfo.clearValueCount = 1;
-		renderPassBeginInfo.pClearValues = clearValues;
-		renderPassBeginInfo.framebuffer = p_->framebuffers[c];
-		vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-		VkViewport viewport;
-		viewport.x = 0;
-		viewport.y = 0;
-		viewport.width = (float)width;
-		viewport.height = (float)height;
-		viewport.minDepth = 0.f;
-		viewport.maxDepth = 1.f;
-		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-		VkRect2D scissor;
-		scissor.offset = { 0, 0 };
-		scissor.extent = VkExtent2D{ (uint32_t)width, (uint32_t)height };
-		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-		// Display ray traced image generated by compute shader as a full screen quad
-		// Quad vertices are generated in the vertex shader
-		//vkCmdBindDescriptorSets(p_->commandBuffers[c], VK_PIPELINE_BIND_POINT_GRAPHICS, p_->pipelineLayout,
-		//	0, 1, &data.DescriptorSet, 0, NULL);
-		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_->rasterizationPipeline);
-		vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-
-		vkCmdEndRenderPass(commandBuffer);
-
-		VulkanCheck(vkEndCommandBuffer(commandBuffer));
-
-		p_->frameData[c].dirty = false;
+		p_->frameData[c].commandBuffer = commandBuffers[c];
+		RecordCommands(c, backendData, p_);
 	}
 
 	CoreLogDebug(VulkanLogger, "Pipeline: Configuration successful.");
@@ -333,7 +276,37 @@ void HawkEye::Pipeline::Shutdown()
 
 void HawkEye::Pipeline::UseBuffers(DrawBuffer* drawBuffers, int bufferCount)
 {
-	
+	if (drawBuffers && bufferCount > 0)
+	{
+		DrawBuffer* drawBuffersCopy = new DrawBuffer[bufferCount];
+		memcpy(drawBuffersCopy, drawBuffers, bufferCount * sizeof(DrawBuffer));
+
+		if (p_->drawBufferCount > bufferCount)
+		{
+			p_->drawBufferCount = bufferCount;
+		}
+
+		std::swap(drawBuffersCopy, p_->drawBuffers);
+
+		if (p_->drawBufferCount <= bufferCount)
+		{
+			p_->drawBufferCount = bufferCount;
+		}
+
+		delete[] drawBuffersCopy;
+	}
+	else
+	{
+		DrawBuffer* drawBuffersCopy = nullptr;
+		p_->drawBufferCount = 0;
+		std::swap(drawBuffersCopy, p_->drawBuffers);
+		delete[] drawBuffersCopy;
+	}
+
+	for (int c = 0; c < p_->frameData.size(); ++c)
+	{
+		p_->frameData[c].dirty = true;
+	}
 }
 
 void HawkEye::Pipeline::DrawFrame()
@@ -346,8 +319,10 @@ void HawkEye::Pipeline::DrawFrame()
 	const VulkanBackend::BackendData& backendData = *p_->backendData;
 	VkDevice device = backendData.logicalDevice;
 
-	vkWaitForFences(device, 1, &p_->frameFences[p_->currentFrame], VK_TRUE, UINT64_MAX);
-	vkResetFences(device, 1, &p_->frameFences[p_->currentFrame]);
+	uint32_t frameIndex = p_->currentFrame % p_->frameFences.size();
+
+	vkWaitForFences(device, 1, &p_->frameFences[frameIndex], VK_TRUE, UINT64_MAX);
+	vkResetFences(device, 1, &p_->frameFences[frameIndex]);
 
 	uint32_t currentImageIndex;
 	VkResult result = vkAcquireNextImageKHR(device, p_->swapchain, UINT64_MAX, p_->presentSemaphore,
@@ -360,6 +335,12 @@ void HawkEye::Pipeline::DrawFrame()
 	}
 	VulkanCheck(result);
 	
+	if (p_->frameData[currentImageIndex].dirty)
+	{
+		VulkanBackend::ResetCommandBuffer(p_->frameData[currentImageIndex].commandBuffer);
+		RecordCommands(currentImageIndex, backendData, p_);
+	}
+
 	static VkPipelineStageFlags pipelineStageWait = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -371,7 +352,7 @@ void HawkEye::Pipeline::DrawFrame()
 	submitInfo.pSignalSemaphores = &p_->graphicsSemaphore;
 	submitInfo.pCommandBuffers = &p_->frameData[currentImageIndex].commandBuffer;
 
-	VulkanCheck(vkQueueSubmit(p_->graphicsQueue, 1, &submitInfo, p_->frameFences[p_->currentFrame]));
+	VulkanCheck(vkQueueSubmit(p_->graphicsQueue, 1, &submitInfo, p_->frameFences[frameIndex]));
 
 	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -394,9 +375,8 @@ void HawkEye::Pipeline::DrawFrame()
 			VulkanCheck(result);
 		}
 	}
-	VulkanCheck(vkQueueWaitIdle(p_->surfaceData->defaultPresentQueue));
 
-	p_->currentFrame = (p_->currentFrame + 1) % (uint32_t)p_->frameFences.size();
+	++p_->currentFrame;
 }
 
 void HawkEye::Pipeline::Resize(int width, int height)
@@ -453,54 +433,23 @@ void HawkEye::Pipeline::Resize(int width, int height)
 		p_->framebuffers[f] = framebuffer;
 	}
 
-	vkResetCommandPool(device, p_->commandPool, 0);
-
 	for (int c = 0; c < p_->frameData.size(); ++c)
 	{
-		VkCommandBuffer commandBuffer = p_->frameData[c].commandBuffer;
-
-		VkCommandBufferBeginInfo commandBufferBeginInfo{};
-		commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-		VulkanCheck(vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo));
-
-		VkClearValue clearValues[1];
-		clearValues[0].color = { 0.f, 0.f, 0.f };
-
-		VkRenderPassBeginInfo renderPassBeginInfo{};
-		renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		renderPassBeginInfo.renderPass = p_->renderPass;
-		renderPassBeginInfo.renderArea.extent.width = width;
-		renderPassBeginInfo.renderArea.extent.height = height;
-		renderPassBeginInfo.clearValueCount = 1;
-		renderPassBeginInfo.pClearValues = clearValues;
-		renderPassBeginInfo.framebuffer = p_->framebuffers[c];
-		vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-		// HACK: Without dynamic viewports and other states, the pipeline might need to be recreated.
-		VkViewport viewport;
-		viewport.x = 0;
-		viewport.y = 0;
-		viewport.width = (float)width;
-		viewport.height = (float)height;
-		viewport.minDepth = 0.f;
-		viewport.maxDepth = 1.f;
-		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-		VkRect2D scissor;
-		scissor.offset = { 0, 0 };
-		scissor.extent = VkExtent2D{ (uint32_t)width, (uint32_t)height };
-		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-		// Display ray traced image generated by compute shader as a full screen quad
-		// Quad vertices are generated in the vertex shader
-		//vkCmdBindDescriptorSets(p_->commandBuffers[c], VK_PIPELINE_BIND_POINT_GRAPHICS, p_->pipelineLayout,
-		//	0, 1, &data.DescriptorSet, 0, NULL);
-		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, p_->rasterizationPipeline);
-		vkCmdDraw(commandBuffer, 3, 1, 0, 0);
-
-		vkCmdEndRenderPass(commandBuffer);
-
-		VulkanCheck(vkEndCommandBuffer(commandBuffer));
+		p_->frameData[c].dirty = true;
 	}
+}
+
+uint64_t HawkEye::Pipeline::GetPresentedFrame() const
+{
+	return p_->currentFrame;
+}
+
+uint64_t HawkEye::Pipeline::GetFramesInFlight() const
+{
+	return p_->frameFences.size();
+}
+
+uint64_t HawkEye::Pipeline::GetUUID() const
+{
+	return (uint64_t)this;
 }

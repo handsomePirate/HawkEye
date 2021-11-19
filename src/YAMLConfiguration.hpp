@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 
-struct PipelineLayer
+struct PipelinePass
 {
 	enum class Type
 	{
@@ -36,6 +36,18 @@ struct PipelineLayer
 	std::vector<Target> targets;
 
 	int samples = 0;
+
+	struct VertexAttribute
+	{
+		int byteCount;
+		enum class Type
+		{
+			Uint = 0,
+			Int = 1,
+			Float = 2
+		} type;
+	};
+	std::vector<VertexAttribute> attributes;
 };
 
-PipelineLayer ConfigureLayer(const YAML::Node& layerNode);
+PipelinePass ConfigureLayer(const YAML::Node& passNode);

@@ -1,6 +1,6 @@
 # Hawk Eye pipeline configuration.
 
-Layers:
+Passes:
   -
     type: rasterized
     post:
@@ -13,3 +13,10 @@ Layers:
       #- depth
       #- sample
     samples: 1
+    vertex attributes:
+        # position
+      - vec3
+        # normal
+      #- vec3
+        # color
+      #- vec3

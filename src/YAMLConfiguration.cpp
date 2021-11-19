@@ -2,105 +2,161 @@
 #include <VulkanBackend/Logger.hpp>
 #include <regex>
 
-PipelineLayer ConfigureLayer(const YAML::Node& layerNode)
+PipelinePass ConfigureLayer(const YAML::Node& passNode)
 {
-	PipelineLayer layer{};
+	PipelinePass pass{};
 
-	if (!layerNode["type"])
+	if (!passNode["type"])
 	{
-		CoreLogError(VulkanLogger, "Pipeline layer: type was not defined.");
-		return layer;
+		CoreLogError(VulkanLogger, "Pipeline pass: type was not defined.");
+		return pass;
 	}
 
-	std::string type = layerNode["type"].as<std::string>();
+	std::string type = passNode["type"].as<std::string>();
 
 	if (type == "computed")
 	{
-		layer.type = PipelineLayer::Type::Computed;
+		pass.type = PipelinePass::Type::Computed;
 	}
 	else if (type == "rasterized")
 	{
-		layer.type = PipelineLayer::Type::Rasterized;
+		pass.type = PipelinePass::Type::Rasterized;
 	}
 	else
 	{
-		CoreLogError(VulkanLogger, "Pipeline layer: Undefined layer type - %s.", type);
-		return layer;
+		CoreLogError(VulkanLogger, "Pipeline pass: Undefined pass type - %s.", type);
+		return pass;
 	}
 
-	if (layerNode["post"])
+	if (passNode["post"])
 	{
-		for (int p = 0; p < layerNode["post"].size(); ++p)
+		for (int p = 0; p < passNode["post"].size(); ++p)
 		{
-			std::string postProcess = layerNode["post"][p].as<std::string>();
+			std::string postProcess = passNode["post"][p].as<std::string>();
 
 			if (postProcess == "blur")
 			{
-				layer.postProcess.push_back(PipelineLayer::PostProcess::Blur);
+				pass.postProcess.push_back(PipelinePass::PostProcess::Blur);
 			}
 			else
 			{
-				CoreLogWarn(VulkanLogger, "Pipeline layer: Undefined post processing effect type - %s.", postProcess);
+				CoreLogWarn(VulkanLogger, "Pipeline pass: Undefined post processing effect type - %s.", postProcess);
 			}
 		}
 	}
 
-	if (layerNode["shaders"])
+	if (passNode["shaders"])
 	{
-		if (layerNode["shaders"]["vertex"])
+		if (passNode["shaders"]["vertex"])
 		{
-			layer.shaders.emplace_back(PipelineLayer::Shader::Vertex, layerNode["shaders"]["vertex"].as<std::string>());
+			pass.shaders.emplace_back(PipelinePass::Shader::Vertex, passNode["shaders"]["vertex"].as<std::string>());
 		}
-		if (layerNode["shaders"]["fragment"])
+		if (passNode["shaders"]["fragment"])
 		{
-			layer.shaders.emplace_back(PipelineLayer::Shader::Fragment, layerNode["shaders"]["fragment"].as<std::string>());
+			pass.shaders.emplace_back(PipelinePass::Shader::Fragment, passNode["shaders"]["fragment"].as<std::string>());
 		}
-		if (layerNode["shaders"]["compute"])
+		if (passNode["shaders"]["compute"])
 		{
-			layer.shaders.emplace_back(PipelineLayer::Shader::Compute, layerNode["shaders"]["compute"].as<std::string>());
+			pass.shaders.emplace_back(PipelinePass::Shader::Compute, passNode["shaders"]["compute"].as<std::string>());
 		}
 	}
 
 
-	if (layerNode["targets"])
+	if (passNode["targets"])
 	{
-		for (int p = 0; p < layerNode["targets"].size(); ++p)
+		for (int p = 0; p < passNode["targets"].size(); ++p)
 		{
-			std::string targets = layerNode["targets"][p].as<std::string>();
+			std::string targets = passNode["targets"][p].as<std::string>();
 
 			if (targets == "color")
 			{
-				layer.targets.push_back(PipelineLayer::Target::Color);
+				pass.targets.push_back(PipelinePass::Target::Color);
 			}
 			else if (targets == "depth")
 			{
-				layer.targets.push_back(PipelineLayer::Target::Depth);
+				pass.targets.push_back(PipelinePass::Target::Depth);
 			}
 			else if (targets == "sample")
 			{
-				layer.targets.push_back(PipelineLayer::Target::Sample);
+				pass.targets.push_back(PipelinePass::Target::Sample);
 			}
 			else
 			{
-				CoreLogWarn(VulkanLogger, "Pipeline layer: Undefined target type - %s.", targets);
+				CoreLogWarn(VulkanLogger, "Pipeline pass: Undefined target type - %s.", targets);
 			}
 		}
 	}
 	else
 	{
-		CoreLogWarn(VulkanLogger, "Pipeline layer: No targets defined, color assumed.");
-		layer.targets.push_back(PipelineLayer::Target::Color);
+		CoreLogWarn(VulkanLogger, "Pipeline pass: No targets defined, color assumed.");
+		pass.targets.push_back(PipelinePass::Target::Color);
 	}
 
-	if (layerNode["samples"])
+	if (passNode["samples"])
 	{
-		layer.samples = layerNode["samples"].as<int>();
+		pass.samples = passNode["samples"].as<int>();
 	}
 	else
 	{
-		CoreLogWarn(VulkanLogger, "Pipeline layer: Sample count not defined, 1 assumed.");
-		layer.samples = 1;
+		CoreLogWarn(VulkanLogger, "Pipeline pass: Sample count not defined, 1 assumed.");
+		pass.samples = 1;
 	}
 
-	return layer;
+	if (passNode["vertex attributes"])
+	{
+		for (int a = 0; a < passNode["vertex attributes"].size(); ++a)
+		{
+			std::string attributeString = passNode["vertex attributes"][a].as<std::string>();
+			int byteCount;
+			PipelinePass::VertexAttribute::Type type;
+			std::regex vecRegex("vec[2-4]");
+			std::regex ivecRegex("ivec[2-4]");
+			std::regex uvecRegex("uvec[2-4]");
+			bool isWellFormed = false;
+			bool isVector = false;
+			if (std::regex_match(attributeString, vecRegex) || attributeString == "float")
+			{
+				type = PipelinePass::VertexAttribute::Type::Float;
+				isWellFormed = true;
+				isVector = attributeString != "float";
+			}
+			else if (std::regex_match(attributeString, ivecRegex) || attributeString == "int")
+			{
+				type = PipelinePass::VertexAttribute::Type::Int;
+				isWellFormed = true;
+				isVector = attributeString != "int";
+			}
+			else if (std::regex_match(attributeString, uvecRegex) || attributeString == "uint")
+			{
+				type = PipelinePass::VertexAttribute::Type::Uint;
+				isWellFormed = true;
+				isVector = attributeString != "uint";
+			}
+
+			if (!isWellFormed)
+			{
+				CoreLogWarn(VulkanLogger, "Pipeline pass: Vertex attributes not well formed (can be [ui]?vec[2-4]).");
+				continue;
+			}
+
+			if (isVector)
+			{
+				std::string numberString = &attributeString[attributeString.length() - 1];
+				byteCount = std::stoi(numberString) * 4;
+			}
+			else
+			{
+				byteCount = 4;
+			}
+
+			pass.attributes.push_back({ byteCount, type });
+		}
+	}
+	else
+	{
+		CoreLogWarn(VulkanLogger, "Pipeline pass: Vertex attributes not defined, vec3 assumed (position).");
+		pass.attributes.push_back({ 12, PipelinePass::VertexAttribute::Type::Float });
+	}
+
+	return pass;
 }
