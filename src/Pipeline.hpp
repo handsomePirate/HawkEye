@@ -34,6 +34,8 @@ struct HawkEye::Pipeline::Private
 	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
 	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
 	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+	// TODO: Layers.
+	int vertexSize = 1;
 	uint64_t currentFrame = 0;
 	HawkEye::Pipeline::DrawBuffer* drawBuffers = nullptr;
 	int drawBufferCount = 0;

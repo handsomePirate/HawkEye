@@ -133,6 +133,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 			vertexAttributeDescriptions[a].offset = vertexSize;
 			vertexSize += passes[0].attributes[a].byteCount;
 		}
+		p_->vertexSize = vertexSize;
 
 		VkVertexInputBindingDescription vertexBindingDescription{};
 		vertexBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;

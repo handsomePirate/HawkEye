@@ -71,18 +71,29 @@ int main(int argc, char* argv[])
 	
 	std::vector<float> vertexBufferData0 = 
 	{
-		-1.f, -1.f, 0.f,
-		1.f, -1.f, 0.f,
-		-1.f, 1.f, 0.f
+		
+		/*pos*/-1.f, -1.f, 0.f,
+		/*col*/1.f, 0.f, 0.f,
+
+		/*pos*/1.f, -1.f, 0.f,
+		/*col*/1.f, 0.f, 0.f,
+
+		/*pos*/-1.f, 1.f, 0.f,
+		/*col*/1.f, 0.f, 0.f,
 	};
 	HawkEye::HBuffer vertexBuffer0 = HawkEye::UploadBuffer(rendererData, vertexBufferData0.data(), (int)vertexBufferData0.size() * sizeof(float),
 		HawkEye::BufferUsage::Vertex, HawkEye::BufferType::DeviceLocal);
 
 	std::vector<float> vertexBufferData1 =
 	{
-		1.f, -1.f, 0.f,
-		1.f, 1.f, 0.f,
-		-1.f, 1.f, 0.f,
+		/*pos*/1.f, -1.f, 0.f,
+		/*col*/0.f, 0.f, 1.f,
+
+		/*pos*/1.f, 1.f, 0.f,
+		/*col*/0.f, 0.f, 1.f,
+
+		/*pos*/-1.f, 1.f, 0.f,
+		/*col*/0.f, 0.f, 1.f,
 	};
 	HawkEye::HBuffer vertexBuffer1 = HawkEye::UploadBuffer(rendererData, vertexBufferData1.data(), (int)vertexBufferData1.size() * sizeof(float),
 		HawkEye::BufferUsage::Vertex, HawkEye::BufferType::DeviceLocal);

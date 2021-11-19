@@ -76,7 +76,7 @@ void RecordCommands(int c, const VulkanBackend::BackendData& backendData, HawkEy
 		}
 		else
 		{
-			vkCmdDraw(commandBuffer, pipelineData->drawBuffers[b].vertexBuffer->dataSize / 4, 1, 0, 0);
+			vkCmdDraw(commandBuffer, pipelineData->drawBuffers[b].vertexBuffer->dataSize / pipelineData->vertexSize, 1, 0, 0);
 		}
 	}
 
