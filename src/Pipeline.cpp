@@ -338,6 +338,19 @@ void HawkEye::Pipeline::DrawFrame()
 	
 	if (p_->frameData[currentImageIndex].dirty)
 	{
+		for (int b = 0; b < p_->drawBufferCount; ++b)
+		{
+			if (p_->drawBuffers[b].vertexBuffer->firstUse)
+			{
+				WaitForUpload((HRendererData)p_->backendData, p_->drawBuffers[b].vertexBuffer);
+			}
+
+			if (p_->drawBuffers[b].indexBuffer && p_->drawBuffers[b].indexBuffer->firstUse)
+			{
+				WaitForUpload((HRendererData)p_->backendData, p_->drawBuffers[b].indexBuffer);
+			}
+		}
+
 		VulkanBackend::ResetCommandBuffer(p_->frameData[currentImageIndex].commandBuffer);
 		RecordCommands(currentImageIndex, backendData, p_);
 	}
