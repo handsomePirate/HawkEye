@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include <string>
 
 namespace HawkEye
 {
@@ -39,8 +40,25 @@ namespace HawkEye
 
 		uint64_t GetUUID() const;
 
+		void SetUniform(const std::string& name, HTexture texture);
+
+		template<typename Type>
+		void SetUniform(const std::string& name, Type& data)
+		{
+			SetUniformImpl(name, &data, sizeof(Type));
+		}
+
+		template<typename Type>
+		void SetUniform(const std::string& name, Type&& data)
+		{
+			SetUniformImpl(name, &data, sizeof(Type));
+		}
+
 		struct Private;
 		Private* p_;
+
+	private:
+		void SetUniformImpl(const std::string& name, void* data, int dataSize);
 	};
 
 	// ======================== Textures =======================

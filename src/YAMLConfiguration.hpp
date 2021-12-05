@@ -2,6 +2,7 @@
 #include <yaml-cpp/yaml.h>
 #include <vector>
 #include <string>
+#include <vulkan/vulkan.hpp>
 
 struct PipelinePass
 {
@@ -48,6 +49,16 @@ struct PipelinePass
 		} type;
 	};
 	std::vector<VertexAttribute> attributes;
+
+	// TODO: The int for size might not be required.
+	struct UniformData
+	{
+		std::string name;
+		int size;
+		VkDescriptorType type;
+		VkShaderStageFlags visibility;
+	};
+	std::vector<UniformData> uniforms;
 };
 
 PipelinePass ConfigureLayer(const YAML::Node& passNode);

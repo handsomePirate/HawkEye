@@ -7,6 +7,8 @@ struct FrameData
 {
 	bool dirty = true;
 	VkCommandBuffer commandBuffer;
+	VkDescriptorPool descriptorPool;
+	VkDescriptorSet descriptorSet;
 };
 
 struct HawkEye::Pipeline::Private
@@ -30,10 +32,11 @@ struct HawkEye::Pipeline::Private
 	VkSemaphore presentSemaphore = VK_NULL_HANDLE;
 	std::vector<VkFence> frameFences;
 	VkCommandPool commandPool = VK_NULL_HANDLE;
+	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+	std::map<std::string, HBuffer> uniformBuffers;
+	std::map<std::string, int> uniformTextureBindings;
+	std::map<std::string, HTexture> uniformTextures;
 	std::vector<FrameData> frameData;
-	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-	VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
-	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
 	// TODO: Layers.
 	int vertexSize = 1;
 	uint64_t currentFrame = 0;

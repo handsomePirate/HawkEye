@@ -62,7 +62,7 @@ int main(int argc, char* argv[])
 
 	renderingPipeline.Configure(rendererData, frontendConfigFile.c_str(), windowWidth, windowHeight,
 		testWindow.GetWindowHandle(), testWindow.GetProgramConnection());
-	/*
+	
 	// Texture (gradient).
 
 	constexpr int width = 4096;
@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
 		textures[t] = HawkEye::UploadTexture(rendererData, image.data(), (int)image.size(), width, height, HawkEye::TextureFormat::RGBA,
 			HawkEye::ColorCompression::SRGB, HawkEye::TextureCompression::None, false);
 	}
-	*/
+	
 	// Vertex and index buffers.
 	
 	std::vector<float> vertexBufferData0 = 
@@ -95,24 +95,30 @@ int main(int argc, char* argv[])
 		
 		/*pos*/-1.f, -1.f, 0.f,
 		/*col*/1.f, 0.f, 0.f,
+		/*uv*/ 0.f, 0.f,
 
 		/*pos*/1.f, -1.f, 0.f,
 		/*col*/1.f, 0.f, 0.f,
+		/*uv*/ 1.f, 0.f,
 
 		/*pos*/-1.f, 1.f, 0.f,
 		/*col*/1.f, 0.f, 0.f,
+		/*uv*/ 0.f, 1.f,
 	};
 
 	std::vector<float> vertexBufferData1 =
 	{
 		/*pos*/1.f, -1.f, 0.f,
 		/*col*/0.f, 0.f, 1.f,
+		/*uv*/ 1.f, 0.f,
 
 		/*pos*/1.f, 1.f, 0.f,
 		/*col*/0.f, 0.f, 1.f,
+		/*uv*/ 1.f, 1.f,
 
 		/*pos*/-1.f, 1.f, 0.f,
 		/*col*/0.f, 0.f, 1.f,
+		/*uv*/ 0.f, 1.f,
 	};
 
 	std::vector<uint32_t> indexBufferData =
@@ -146,6 +152,16 @@ int main(int argc, char* argv[])
 
 	//uint32_t test = 0;
 
+	renderingPipeline.SetUniform("test", int(1));
+
+	struct ComplexTest
+	{
+		int i1, i2;
+	};
+	renderingPipeline.SetUniform("complex", ComplexTest{ 2, -1 });
+
+	renderingPipeline.SetUniform("texture", textures[0]);
+
 	while (!testWindow.ShouldClose())
 	{
 		testWindow.PollMessages();
@@ -162,12 +178,10 @@ int main(int argc, char* argv[])
 	HawkEye::DeleteBuffer(rendererData, vertexBuffer1);
 	HawkEye::DeleteBuffer(rendererData, indexBuffer);
 
-	/*
 	for (int t = 0; t < textures.size(); ++t)
 	{
 		HawkEye::DeleteTexture(rendererData, textures[t]);
-	}
-	*/
+	}	
 
 	renderingPipeline.Shutdown();
 

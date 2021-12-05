@@ -13,6 +13,20 @@ Passes:
       #- depth
       #- sample
     samples: 1
+    # TODO: Change to descriptors.
+    uniforms:
+        # in bytes
+      - 
+        name: test
+        size: 4
+        type: uniform
+      -
+        name: complex
+        size: 8
+        type: uniform
+      -
+        name: texture
+        type: texture
     vertex attributes:
         # position
       - vec3
@@ -20,3 +34,5 @@ Passes:
       #- vec3
         # color
       - vec3
+        # uv
+      - vec2

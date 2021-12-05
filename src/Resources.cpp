@@ -49,6 +49,7 @@ HawkEye::HTexture HawkEye::UploadTexture(HRendererData rendererData, void* data,
 	TextureFormat format, ColorCompression colorCompression, TextureCompression textureCompression,
 	bool generateMips, TextureQueue usage)
 {
+	// NOTE: Currently includes ownership acquisition.
 	const VulkanBackend::BackendData& backendData = *(VulkanBackend::BackendData*)rendererData;
 	VkDevice device = backendData.logicalDevice;
 	const int mipCount = generateMips ? GetMipCount(width, height) : 1;
@@ -112,17 +113,23 @@ HawkEye::HTexture HawkEye::UploadTexture(HRendererData rendererData, void* data,
 	// Transition layout shader read only optimal.
 	if (generateMips)
 	{
-		VulkanBackend::TransitionImageLayout(texture->transferCommandBuffer, texture->imageLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			texture->image.image, mipCount, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_ACCESS_TRANSFER_WRITE_BIT, 0, backendData.transferFamilyIndex, backendData.generalFamilyIndex);
+		VulkanBackend::ReleaseImageOwnership(backendData, texture->transferCommandBuffer, texture->image.image, mipCount,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_IMAGE_ASPECT_COLOR_BIT, texture->imageLayout,
+			VK_ACCESS_TRANSFER_WRITE_BIT, backendData.transferFamilyIndex, backendData.generalFamilyIndex);
 	}
 	else
 	{
 		int nextQueueIndex = usage == TextureQueue::General ? backendData.generalFamilyIndex : backendData.computeFamilyIndex;
 		VulkanBackend::TransitionImageLayout(texture->transferCommandBuffer, texture->imageLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			texture->image.image, mipCount, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_ACCESS_TRANSFER_WRITE_BIT, 0, backendData.transferFamilyIndex, nextQueueIndex);
+			VK_ACCESS_TRANSFER_WRITE_BIT, 0);
+
+		VulkanBackend::ReleaseImageOwnership(backendData, texture->transferCommandBuffer, texture->image.image, mipCount,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_IMAGE_ASPECT_COLOR_BIT,
+			texture->imageLayout, VK_ACCESS_TRANSFER_WRITE_BIT, backendData.transferFamilyIndex, nextQueueIndex);
+
 		texture->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		texture->currentFamilyIndex = backendData.transferFamilyIndex;
 	}
 
 	VulkanCheck(vkEndCommandBuffer(texture->transferCommandBuffer));
@@ -152,11 +159,17 @@ HawkEye::HTexture HawkEye::UploadTexture(HRendererData rendererData, void* data,
 		VulkanBackend::GenerateMips(backendData, texture->generalCommandBuffer, texture->image.image, imageFormat, width, height, mipCount);
 		texture->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
-		int pastQueueIndex = usage == TextureQueue::General ? VK_QUEUE_FAMILY_IGNORED : backendData.generalFamilyIndex;
-		int nextQueueIndex = usage == TextureQueue::General ? VK_QUEUE_FAMILY_IGNORED : backendData.computeFamilyIndex;
 		VulkanBackend::TransitionImageLayout(texture->generalCommandBuffer, texture->imageLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 			texture->image.image, mipCount, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_ACCESS_TRANSFER_READ_BIT, 0, pastQueueIndex, nextQueueIndex);
+			VK_ACCESS_TRANSFER_READ_BIT, 0);
+
+		if (usage == TextureQueue::Compute)
+		{
+			VulkanBackend::ReleaseImageOwnership(backendData, texture->transferCommandBuffer, texture->image.image, mipCount,
+				VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_IMAGE_ASPECT_COLOR_BIT,
+				texture->imageLayout, VK_ACCESS_TRANSFER_READ_BIT, backendData.generalFamilyIndex, backendData.computeFamilyIndex);
+		}
+
 		texture->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 		VulkanCheck(vkEndCommandBuffer(texture->generalCommandBuffer));
@@ -173,10 +186,8 @@ HawkEye::HTexture HawkEye::UploadTexture(HRendererData rendererData, void* data,
 		submitInfo.pWaitDstStageMask = &waitStageMask;
 
 		VulkanCheck(vkQueueSubmit(backendData.generalQueues[0], 1, &submitInfo, texture->uploadFence));
-		if (usage == TextureQueue::General)
-		{
-			texture->queueOwnership = backendData.generalFamilyIndex;
-		}
+
+		texture->currentFamilyIndex = backendData.generalFamilyIndex;
 	}
 
 	return texture;
@@ -264,40 +275,47 @@ HawkEye::HBuffer HawkEye::UploadBuffer(HRendererData rendererData, void* data, i
 		dataSize, VMA_MEMORY_USAGE_CPU_ONLY);
 
 	// Copy data to staging buffer.
+	if (data)
 	{
 		void* stagingBufferData;
 		VulkanCheck(vmaMapMemory(backendData.allocator, buffer->stagingBuffer.allocation, &stagingBufferData));
 		memcpy(stagingBufferData, data, dataSize);
 		vmaUnmapMemory(backendData.allocator, buffer->stagingBuffer.allocation);
+
+		buffer->uploadFence = VulkanBackend::CreateFence(backendData);
+
+		buffer->transferCommandBuffer = VulkanBackend::AllocateCommandBuffer(backendData, backendData.transferCommandPool);
+
+		// All in a single command buffer.
+		VkCommandBufferBeginInfo commandBufferBeginInfo{};
+		commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		VulkanCheck(vkBeginCommandBuffer(buffer->transferCommandBuffer, &commandBufferBeginInfo));
+
+		VulkanBackend::CopyBufferToBuffer(backendData, buffer->stagingBuffer.buffer, buffer->buffer.buffer, dataSize,
+			buffer->transferCommandBuffer);
+
+		int nextQueueIndex = bufferQueue == BufferQueue::General ? backendData.generalFamilyIndex : backendData.computeFamilyIndex;
+		VulkanBackend::ReleaseBufferOwnership(backendData, buffer->transferCommandBuffer, buffer->stagingBuffer.buffer, dataSize, 0,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+			backendData.transferFamilyIndex, nextQueueIndex);
+		buffer->currentFamilyIndex = backendData.transferFamilyIndex;
+
+		VulkanCheck(vkEndCommandBuffer(buffer->transferCommandBuffer));
+
+		// Queue submit.
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &buffer->transferCommandBuffer;
+
+		VulkanCheck(vkQueueSubmit(backendData.transferQueues[0], 1, &submitInfo, buffer->uploadFence));
 	}
-
-	buffer->uploadFence = VulkanBackend::CreateFence(backendData);
-
-	buffer->transferCommandBuffer = VulkanBackend::AllocateCommandBuffer(backendData, backendData.transferCommandPool);
-
-	// All in a single command buffer.
-	VkCommandBufferBeginInfo commandBufferBeginInfo{};
-	commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	VulkanCheck(vkBeginCommandBuffer(buffer->transferCommandBuffer, &commandBufferBeginInfo));
-
-	VulkanBackend::CopyBufferToBuffer(backendData, buffer->stagingBuffer.buffer, buffer->buffer.buffer, dataSize,
-		buffer->transferCommandBuffer);
-
-	int nextQueueIndex = bufferQueue == BufferQueue::General ? backendData.generalFamilyIndex : backendData.computeFamilyIndex;
-	VulkanBackend::ReleaseBufferOwnership(backendData, buffer->transferCommandBuffer, buffer->stagingBuffer.buffer, dataSize, 0,
-		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
-		backendData.transferFamilyIndex, nextQueueIndex);
-	buffer->currentFamilyIndex = backendData.transferFamilyIndex;
-
-	VulkanCheck(vkEndCommandBuffer(buffer->transferCommandBuffer));
-
-	// Queue submit.
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &buffer->transferCommandBuffer;
-
-	VulkanCheck(vkQueueSubmit(backendData.transferQueues[0], 1, &submitInfo, buffer->uploadFence));
+	else
+	{
+		buffer->uploadFence = VulkanBackend::CreateFence(backendData, VK_FENCE_CREATE_SIGNALED_BIT);
+		buffer->currentFamilyIndex = bufferQueue == BufferQueue::General ? backendData.generalFamilyIndex :
+			backendData.computeFamilyIndex;
+	}
 
 	return buffer;
 }

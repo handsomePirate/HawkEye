@@ -14,8 +14,9 @@ struct HawkEye::HTexture_t
 	VulkanBackend::Buffer stagingBuffer{};
 	VkSemaphore operationSemaphore = VK_NULL_HANDLE;
 	VkSemaphore uploadSemaphore = VK_NULL_HANDLE;
-	int queueOwnership = -1;
 	int mipCount = 1;
+	bool firstUse = true;
+	int currentFamilyIndex;
 	TextureQueue currentUsage;
 };
 

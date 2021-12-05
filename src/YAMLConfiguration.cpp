@@ -158,5 +158,105 @@ PipelinePass ConfigureLayer(const YAML::Node& passNode)
 		pass.attributes.push_back({ 12, PipelinePass::VertexAttribute::Type::Float });
 	}
 
+	if (passNode["uniforms"])
+	{
+		std::regex bRegex("[0-9]+");
+		for (int u = 0; u < passNode["uniforms"].size(); ++u)
+		{
+			VkDescriptorType type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			if (passNode["uniforms"][u]["type"])
+			{
+				std::string typeStr = passNode["uniforms"][u]["type"].as<std::string>();
+				if (typeStr != "uniform")
+				{
+					if (typeStr == "texture")
+					{
+						type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+					}
+				}
+			}
+
+			VkShaderStageFlags visibility = VK_SHADER_STAGE_ALL;
+			if (passNode["uniforms"][u]["visibility"])
+			{
+				visibility = 0;
+				std::vector<std::string> visibilityArr;
+				std::string visibilityStr = passNode["uniforms"][u]["visibility"].as<std::string>();
+				int lastDel = 0;
+				int currDel = (int)visibilityStr.find('|');
+				bool hadSplit = false;
+				// TODO: Whitespaces.
+				while (currDel != -1)
+				{
+					visibilityArr.push_back(visibilityStr.substr(lastDel, currDel - lastDel));
+					lastDel = currDel + 1;
+					currDel = (int)visibilityStr.find('|', lastDel);
+					hadSplit = true;
+				}
+				visibilityArr.push_back(visibilityStr.substr(lastDel));
+
+				for (int s = 0; s < visibilityArr.size(); ++s)
+				{
+					if (visibilityArr[s] == "vertex")
+					{
+						visibility |= VK_SHADER_STAGE_VERTEX_BIT;
+					}
+					else if (visibilityArr[s] == "fragment")
+					{
+						visibility |= VK_SHADER_STAGE_FRAGMENT_BIT;
+					}
+					else if (visibilityArr[s] == "geometry")
+					{
+						visibility |= VK_SHADER_STAGE_GEOMETRY_BIT;
+					}
+					else if (visibilityArr[s] == "tesselation control")
+					{
+						visibility |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+					}
+					else if (visibilityArr[s] == "tesslation evaluation")
+					{
+						visibility |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+					}
+					else if (visibilityArr[s] == "compute")
+					{
+						visibility |= VK_SHADER_STAGE_COMPUTE_BIT;
+					}
+					else if (visibilityArr[s] == "graphics")
+					{
+						visibility |= VK_SHADER_STAGE_ALL_GRAPHICS;
+					}
+					else if (visibilityArr[s] == "all")
+					{
+						visibility |= VK_SHADER_STAGE_ALL;
+					}
+				}
+			}
+			
+			int size = 0;
+			if (type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER && passNode["uniforms"][u]["size"])
+			{
+				CoreLogWarn(VulkanLogger, "Pipeline pass: Size is irrelevant for texture uniforms - skipping.");
+			}
+			if (type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+			{
+				if (!passNode["uniforms"][u]["size"])
+				{
+					CoreLogError(VulkanLogger, "Pipeline pass: Missing uniform size - skipping uniform.");
+					continue;
+				}
+				else
+				{
+					size = passNode["uniforms"][u]["size"].as<int>();
+				}
+			}
+
+			pass.uniforms.push_back(
+				{
+					passNode["uniforms"][u]["name"].as<std::string>(),
+					size, type, visibility
+				});
+		}
+	}
+
 	return pass;
 }
