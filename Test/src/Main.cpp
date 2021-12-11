@@ -6,6 +6,7 @@
 #include <array>
 #include <chrono>
 #include <future>
+#include <iostream>
 
 HawkEye::Pipeline renderingPipeline;
 
@@ -82,11 +83,18 @@ int main(int argc, char* argv[])
 	}
 
 	std::array<HawkEye::HTexture, 1> textures;
+	auto start = std::chrono::high_resolution_clock::now();
 	for (int t = 0; t < textures.size(); ++t)
 	{
 		textures[t] = HawkEye::UploadTexture(rendererData, image.data(), (int)image.size(), width, height, HawkEye::TextureFormat::RGBA,
 			HawkEye::ColorCompression::SRGB, HawkEye::TextureCompression::None, false);
 	}
+	for (int t = 0; t < textures.size(); ++t)
+	{
+		HawkEye::WaitForUpload(rendererData, textures[t]);
+	}
+	auto end = std::chrono::high_resolution_clock::now();
+	std::cout << "Texture upload took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms." << std::endl;
 	
 	// Vertex and index buffers.
 	
@@ -142,8 +150,10 @@ int main(int argc, char* argv[])
 			indexBuffer = HawkEye::UploadBuffer(rendererData, indexBufferData.data(), (int)indexBufferData.size() * sizeof(uint32_t),
 				HawkEye::BufferUsage::Index, HawkEye::BufferType::DeviceLocal);
 
-			drawBuffers[0] = { vertexBuffer0, nullptr };
-			drawBuffers[1] = { vertexBuffer1, indexBuffer };
+			drawBuffers[0].vertexBuffer = vertexBuffer0;
+			drawBuffers[0].indexBuffer = nullptr;
+			drawBuffers[1].vertexBuffer = vertexBuffer1;
+			drawBuffers[1].indexBuffer = indexBuffer;
 
 			renderingPipeline.UseBuffers(drawBuffers, 2);
 		});

@@ -9,7 +9,6 @@ struct HawkEye::HTexture_t
 	VkSampler sampler = VK_NULL_HANDLE;
 	VkImageLayout imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	VkFence uploadFence = VK_NULL_HANDLE;
-	VkCommandBuffer transferCommandBuffer = VK_NULL_HANDLE;
 	VkCommandBuffer generalCommandBuffer = VK_NULL_HANDLE;
 	VulkanBackend::Buffer stagingBuffer{};
 	VkSemaphore operationSemaphore = VK_NULL_HANDLE;
@@ -24,7 +23,7 @@ struct HawkEye::HBuffer_t
 {
 	VulkanBackend::Buffer buffer{};
 	VkFence uploadFence = VK_NULL_HANDLE;
-	VkCommandBuffer transferCommandBuffer = VK_NULL_HANDLE;
+	VkCommandBuffer generalCommandBuffer = VK_NULL_HANDLE;
 	VulkanBackend::Buffer stagingBuffer{};
 	void* mappedBuffer = nullptr;
 	int dataSize = 0;
