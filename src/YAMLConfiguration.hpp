@@ -6,6 +6,8 @@
 
 struct PipelinePass
 {
+	int dimension;
+
 	enum class Type
 	{
 		Undefined,
@@ -58,6 +60,7 @@ struct PipelinePass
 		VkDescriptorType type;
 		VkShaderStageFlags visibility;
 	};
+	std::vector<UniformData> material;
 	std::vector<UniformData> uniforms;
 };
 

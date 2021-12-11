@@ -3,6 +3,7 @@
 Passes:
   -
     type: rasterized
+    dim: 3
     post:
       #- blur
     shaders:
@@ -13,26 +14,20 @@ Passes:
       #- depth
       #- sample
     samples: 1
-    # TODO: Change to descriptors.
-    uniforms:
-        # in bytes
-      - 
-        name: test
-        size: 4
-        type: uniform
-      -
-        name: complex
-        size: 8
-        type: uniform
+    # This specifies per model descriptors - will get a transform automatically
+    material:
       -
         name: texture
         type: texture
+    # This specifies per view descriptors - will get a camera automatically
+    uniforms:
     vertex attributes:
         # position
       - vec3
         # normal
-      #- vec3
-        # color
       - vec3
+        # color
+      #- vec3
         # uv
       - vec2
+      

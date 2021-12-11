@@ -2,6 +2,7 @@
 #include "HawkEye/HawkEyeAPI.hpp"
 #include "YAMLConfiguration.hpp"
 #include <VulkanBackend/VulkanBackendAPI.hpp>
+#include <map>
 
 struct FrameData
 {
@@ -11,11 +12,18 @@ struct FrameData
 	VkDescriptorSet descriptorSet;
 };
 
+struct MaterialData
+{
+	VkDescriptorPool descriptorPool;
+	VkDescriptorSet descriptorSet;
+};
+
 struct HawkEye::Pipeline::Private
 {
 	// TODO: Currently only one layer supported.
 	std::vector<PipelinePass> passes;
 	VulkanBackend::BackendData* backendData = nullptr;
+	int dimension;
 	std::unique_ptr<VulkanBackend::SurfaceData> surfaceData = nullptr;
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 	std::vector<VkImageView> swapchainImageViews;
@@ -30,6 +38,10 @@ struct HawkEye::Pipeline::Private
 	VkQueue computeQueue = VK_NULL_HANDLE;
 	VkSemaphore graphicsSemaphore = VK_NULL_HANDLE;
 	VkSemaphore presentSemaphore = VK_NULL_HANDLE;
+	int materialSize = 0;
+	std::vector<MaterialData> materials;
+	std::vector<PipelinePass::UniformData> materialData;
+	std::vector<HBuffer> materialBuffers;
 	std::vector<VkFence> frameFences;
 	VkCommandPool commandPool = VK_NULL_HANDLE;
 	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
@@ -40,8 +52,7 @@ struct HawkEye::Pipeline::Private
 	// TODO: Layers.
 	int vertexSize = 1;
 	uint64_t currentFrame = 0;
-	HawkEye::Pipeline::DrawBuffer* drawBuffers = nullptr;
-	int drawBufferCount = 0;
+	std::map<int, std::vector<HawkEye::Pipeline::DrawBuffer>> drawBuffers;
 };
 
 void RecordCommands(int c, const VulkanBackend::BackendData& backendData, HawkEye::Pipeline::Private* pipelineData);

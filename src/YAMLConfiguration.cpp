@@ -12,6 +12,21 @@ PipelinePass ConfigureLayer(const YAML::Node& passNode)
 		return pass;
 	}
 
+	if (!passNode["dim"])
+	{
+		CoreLogError(VulkanLogger, "Pipeline pass: dimension not specified (provide dim).");
+		return pass;
+	}
+	else
+	{
+		pass.dimension = passNode["dim"].as<int>();
+		if (pass.dimension != 2 && pass.dimension != 3)
+		{
+			CoreLogError(VulkanLogger, "Pipeline pass: wrong dimension parameter - must be 2 or 3.");
+			return pass;
+		}
+	}
+
 	std::string type = passNode["type"].as<std::string>();
 
 	if (type == "computed")
@@ -158,6 +173,23 @@ PipelinePass ConfigureLayer(const YAML::Node& passNode)
 		pass.attributes.push_back({ 12, PipelinePass::VertexAttribute::Type::Float });
 	}
 
+	if (pass.dimension == 3)
+	{
+		pass.uniforms.push_back(
+			{
+				"camera", constexpr(/*bytes*/4 * /*width*/4 * /*height*/4),
+				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL
+			});
+	}
+	else // pass.dimension == 2
+	{
+		pass.uniforms.push_back(
+			{
+				"camera", constexpr(/*bytes*/4 * /*width*/3 * /*height*/3),
+				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL
+			});
+	}
+
 	if (passNode["uniforms"])
 	{
 		std::regex bRegex("[0-9]+");
@@ -253,6 +285,110 @@ PipelinePass ConfigureLayer(const YAML::Node& passNode)
 			pass.uniforms.push_back(
 				{
 					passNode["uniforms"][u]["name"].as<std::string>(),
+					size, type, visibility
+				});
+		}
+	}
+
+	if (passNode["material"])
+	{
+		std::regex bRegex("[0-9]+");
+		for (int u = 0; u < passNode["material"].size(); ++u)
+		{
+			VkDescriptorType type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			if (passNode["material"][u]["type"])
+			{
+				std::string typeStr = passNode["material"][u]["type"].as<std::string>();
+				if (typeStr != "uniform")
+				{
+					if (typeStr == "texture")
+					{
+						type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+					}
+				}
+			}
+
+			VkShaderStageFlags visibility = VK_SHADER_STAGE_ALL;
+			if (passNode["material"][u]["visibility"])
+			{
+				visibility = 0;
+				std::vector<std::string> visibilityArr;
+				std::string visibilityStr = passNode["material"][u]["visibility"].as<std::string>();
+				int lastDel = 0;
+				int currDel = (int)visibilityStr.find('|');
+				bool hadSplit = false;
+				// TODO: Whitespaces.
+				while (currDel != -1)
+				{
+					visibilityArr.push_back(visibilityStr.substr(lastDel, currDel - lastDel));
+					lastDel = currDel + 1;
+					currDel = (int)visibilityStr.find('|', lastDel);
+					hadSplit = true;
+				}
+				visibilityArr.push_back(visibilityStr.substr(lastDel));
+
+				for (int s = 0; s < visibilityArr.size(); ++s)
+				{
+					if (visibilityArr[s] == "vertex")
+					{
+						visibility |= VK_SHADER_STAGE_VERTEX_BIT;
+					}
+					else if (visibilityArr[s] == "fragment")
+					{
+						visibility |= VK_SHADER_STAGE_FRAGMENT_BIT;
+					}
+					else if (visibilityArr[s] == "geometry")
+					{
+						visibility |= VK_SHADER_STAGE_GEOMETRY_BIT;
+					}
+					else if (visibilityArr[s] == "tesselation control")
+					{
+						visibility |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+					}
+					else if (visibilityArr[s] == "tesslation evaluation")
+					{
+						visibility |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+					}
+					else if (visibilityArr[s] == "compute")
+					{
+						visibility |= VK_SHADER_STAGE_COMPUTE_BIT;
+					}
+					else if (visibilityArr[s] == "graphics")
+					{
+						visibility |= VK_SHADER_STAGE_ALL_GRAPHICS;
+					}
+					else if (visibilityArr[s] == "all")
+					{
+						visibility |= VK_SHADER_STAGE_ALL;
+					}
+				}
+			}
+
+			int size = 0;
+			if (type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER && passNode["material"][u]["size"])
+			{
+				CoreLogWarn(VulkanLogger, "Pipeline pass: Size is irrelevant for texture uniforms - skipping.");
+			}
+			if (type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+			{
+				if (!passNode["material"][u]["size"])
+				{
+					CoreLogError(VulkanLogger, "Pipeline pass: Missing uniform size - skipping uniform.");
+					continue;
+				}
+				else
+				{
+					size = passNode["material"][u]["size"].as<int>();
+				}
+			}
+			else
+			{
+				size = 8;
+			}
+
+			pass.material.push_back(
+				{
+					passNode["material"][u]["name"].as<std::string>(),
 					size, type, visibility
 				});
 		}

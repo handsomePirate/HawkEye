@@ -72,31 +72,33 @@ int main(int argc, char* argv[])
 		constexpr int height = 4096;
 		constexpr int dataSize = width * height * 4;
 		std::vector<unsigned char> image(dataSize);
+		std::vector<unsigned char> image2(dataSize);
 		for (int y = 0; y < height; ++y)
 		{
 			for (int x = 0; x < width; ++x)
 			{
 				int level = (int)std::round(x * 255 / (float)(width - 1));
 				image[(y * width + x) * 4 + 0] = level;
-				image[(y * width + x) * 4 + 1] = level;
-				image[(y * width + x) * 4 + 2] = level;
+				image[(y * width + x) * 4 + 1] = 0;
+				image[(y * width + x) * 4 + 2] = 0;
 				image[(y * width + x) * 4 + 3] = 255;
+
+				image2[(y * width + x) * 4 + 0] = 0;
+				image2[(y * width + x) * 4 + 1] = 0;
+				image2[(y * width + x) * 4 + 2] = level;
+				image2[(y * width + x) * 4 + 3] = 255;
 			}
 		}
 
 		std::array<HawkEye::HTexture, 1> textures;
-		auto start = std::chrono::high_resolution_clock::now();
 		for (int t = 0; t < textures.size(); ++t)
 		{
 			textures[t] = HawkEye::UploadTexture(rendererData, image.data(), (int)image.size(), width, height, HawkEye::TextureFormat::RGBA,
 				HawkEye::ColorCompression::SRGB, HawkEye::TextureCompression::None, false);
 		}
-		for (int t = 0; t < textures.size(); ++t)
-		{
-			HawkEye::WaitForUpload(rendererData, textures[t]);
-		}
-		auto end = std::chrono::high_resolution_clock::now();
-		std::cout << "Texture upload took " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms." << std::endl;
+
+		HawkEye::HTexture myTexture = HawkEye::UploadTexture(rendererData, image2.data(), (int)image2.size(), width, height, HawkEye::TextureFormat::RGBA,
+			HawkEye::ColorCompression::SRGB, HawkEye::TextureCompression::None, false);
 
 		// Vertex and index buffers.
 
@@ -136,10 +138,22 @@ int main(int argc, char* argv[])
 			0, 1, 2
 		};
 
+		struct TextureMaterial
+		{
+			HawkEye::HTexture texture;
+		};
+		TextureMaterial materialData1{ textures[0] };
+		HawkEye::HMaterial material1 = renderingPipeline.CreateMaterial(materialData1);
+
+		TextureMaterial materialData2{ myTexture };
+		HawkEye::HMaterial material2 = renderingPipeline.CreateMaterial(materialData2);
+
 		HawkEye::HBuffer vertexBuffer0;
 		HawkEye::HBuffer vertexBuffer1;
 		HawkEye::HBuffer indexBuffer;
-		HawkEye::Pipeline::DrawBuffer drawBuffers[2];
+
+		const int drawBufferCount = 2;
+		HawkEye::Pipeline::DrawBuffer drawBuffers[drawBufferCount];
 		vertexBuffer0 = HawkEye::UploadBuffer(rendererData, vertexBufferData0.data(), (int)vertexBufferData0.size() * sizeof(float),
 			HawkEye::BufferUsage::Vertex, HawkEye::BufferType::DeviceLocal);
 
@@ -151,24 +165,29 @@ int main(int argc, char* argv[])
 
 		drawBuffers[0].vertexBuffer = vertexBuffer0;
 		drawBuffers[0].indexBuffer = nullptr;
+		drawBuffers[0].material = material1;
 		drawBuffers[1].vertexBuffer = vertexBuffer1;
 		drawBuffers[1].indexBuffer = indexBuffer;
+		drawBuffers[1].material = material2;
 
-		renderingPipeline.UseBuffers(drawBuffers, 2);
+		renderingPipeline.UseBuffers(drawBuffers, drawBufferCount);
+
+		struct Camera
+		{
+			float data[16] =
+			{
+				1.f, 0.f, 0.f, 0.f,
+				0.f, 1.f, 0.f, 0.f,
+				0.f, 0.f, 1.f, 0.f,
+				0.f, 0.f, 0.f, 1.f,
+			};
+		} camera;
+
+		renderingPipeline.SetUniform("camera", camera);
 
 		// Rendering loop.
 
 		//uint32_t test = 0;
-
-		renderingPipeline.SetUniform("test", int(1));
-
-		struct ComplexTest
-		{
-			int i1, i2;
-		};
-		renderingPipeline.SetUniform("complex", ComplexTest{ 2, -1 });
-
-		renderingPipeline.SetUniform("texture", textures[0]);
 
 		while (!testWindow.ShouldClose())
 		{
@@ -190,6 +209,7 @@ int main(int argc, char* argv[])
 		{
 			HawkEye::DeleteTexture(rendererData, textures[t]);
 		}
+		HawkEye::DeleteTexture(rendererData, myTexture);
 
 		renderingPipeline.Shutdown();
 

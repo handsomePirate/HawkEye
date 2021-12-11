@@ -7,6 +7,7 @@ namespace HawkEye
 	typedef struct HRendererData_t* HRendererData;
 	typedef struct HTexture_t* HTexture;
 	typedef struct HBuffer_t* HBuffer;
+	typedef int HMaterial;
 
 	HRendererData Initialize(const char* backendConfigFile);
 	void Shutdown();
@@ -25,8 +26,10 @@ namespace HawkEye
 		{
 			HBuffer vertexBuffer;
 			HBuffer indexBuffer;
+			HMaterial material;
 		};
 		
+		// TODO: Layer.
 		void UseBuffers(DrawBuffer* drawBuffers, int bufferCount);
 
 		void DrawFrame();
@@ -39,6 +42,20 @@ namespace HawkEye
 		uint64_t GetFramesInFlight() const;
 
 		uint64_t GetUUID() const;
+
+		template<typename MaterialType>
+		HMaterial CreateMaterial(MaterialType& material)
+		{
+			return CreateMaterialImpl(&material, sizeof(MaterialType));
+		}
+
+		template<typename MaterialType>
+		HMaterial CreateMaterial(MaterialType&& material)
+		{
+			return CreateMaterialImpl(&material, sizeof(MaterialType));
+		}
+
+		// TODO: Delete material.
 
 		void SetUniform(const std::string& name, HTexture texture);
 
@@ -59,6 +76,7 @@ namespace HawkEye
 
 	private:
 		void SetUniformImpl(const std::string& name, void* data, int dataSize);
+		HMaterial CreateMaterialImpl(void* data, int dataSize);
 	};
 
 	// ======================== Textures =======================
