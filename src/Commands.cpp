@@ -74,14 +74,15 @@ void RecordCommands(int c, const VulkanBackend::BackendData& backendData, HawkEy
 		{
 			static VkDeviceSize offset = 0;
 			vkCmdBindVertexBuffers(commandBuffer, 0, 1, &it->second[b].vertexBuffer->buffer.buffer, &offset);
+			vkCmdBindVertexBuffers(commandBuffer, 1, 1, &it->second[b].instanceBuffer->buffer.buffer, &offset);
 			if (it->second[b].indexBuffer)
 			{
 				vkCmdBindIndexBuffer(commandBuffer, it->second[b].indexBuffer->buffer.buffer, offset, VK_INDEX_TYPE_UINT32);
-				vkCmdDrawIndexed(commandBuffer, it->second[b].indexBuffer->dataSize / 4, 1, 0, 0, 0);
+				vkCmdDrawIndexed(commandBuffer, it->second[b].indexBuffer->dataSize / 4, it->second[b].instanceBuffer->dataSize / 64, 0, 0, 0);
 			}
 			else
 			{
-				vkCmdDraw(commandBuffer, it->second[b].vertexBuffer->dataSize / pipelineData->vertexSize, 1, 0, 0);
+				vkCmdDraw(commandBuffer, it->second[b].vertexBuffer->dataSize / pipelineData->vertexSize, it->second[b].instanceBuffer->dataSize / 64, 0, 0);
 			}
 		}
 	}

@@ -26,6 +26,7 @@ namespace HawkEye
 		{
 			HBuffer vertexBuffer;
 			HBuffer indexBuffer;
+			HBuffer instanceBuffer;
 			HMaterial material;
 		};
 		

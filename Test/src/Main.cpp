@@ -138,6 +138,14 @@ int main(int argc, char* argv[])
 			0, 1, 2
 		};
 
+		std::vector<float> modelMatrix =
+		{
+			1.f, 0.f, 0.f, 0.f,
+			0.f, 1.f, 0.f, 0.f,
+			0.f, 0.f, 1.f, 0.f,
+			0.f, 0.f, 0.f, 1.f
+		};
+
 		struct TextureMaterial
 		{
 			HawkEye::HTexture texture;
@@ -151,6 +159,7 @@ int main(int argc, char* argv[])
 		HawkEye::HBuffer vertexBuffer0;
 		HawkEye::HBuffer vertexBuffer1;
 		HawkEye::HBuffer indexBuffer;
+		HawkEye::HBuffer instanceBuffer;
 
 		const int drawBufferCount = 2;
 		HawkEye::Pipeline::DrawBuffer drawBuffers[drawBufferCount];
@@ -163,12 +172,18 @@ int main(int argc, char* argv[])
 		indexBuffer = HawkEye::UploadBuffer(rendererData, indexBufferData.data(), (int)indexBufferData.size() * sizeof(uint32_t),
 			HawkEye::BufferUsage::Index, HawkEye::BufferType::DeviceLocal);
 
+		instanceBuffer = HawkEye::UploadBuffer(rendererData, modelMatrix.data(), (int)modelMatrix.size() * sizeof(float),
+			HawkEye::BufferUsage::Vertex, HawkEye::BufferType::DeviceLocal);
+
 		drawBuffers[0].vertexBuffer = vertexBuffer0;
 		drawBuffers[0].indexBuffer = nullptr;
 		drawBuffers[0].material = material1;
+		drawBuffers[0].instanceBuffer = instanceBuffer;
+
 		drawBuffers[1].vertexBuffer = vertexBuffer1;
 		drawBuffers[1].indexBuffer = indexBuffer;
 		drawBuffers[1].material = material2;
+		drawBuffers[1].instanceBuffer = instanceBuffer;
 
 		renderingPipeline.UseBuffers(drawBuffers, drawBufferCount);
 
@@ -204,6 +219,7 @@ int main(int argc, char* argv[])
 		HawkEye::DeleteBuffer(rendererData, vertexBuffer0);
 		HawkEye::DeleteBuffer(rendererData, vertexBuffer1);
 		HawkEye::DeleteBuffer(rendererData, indexBuffer);
+		HawkEye::DeleteBuffer(rendererData, instanceBuffer);
 
 		for (int t = 0; t < textures.size(); ++t)
 		{

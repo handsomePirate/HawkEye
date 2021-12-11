@@ -238,29 +238,43 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 			VK_DYNAMIC_STATE_VIEWPORT
 		};
 
-		std::vector<VkVertexInputAttributeDescription> vertexAttributeDescriptions(passes[0].attributes.size());
+		std::vector<VkVertexInputAttributeDescription> vertexAttributeDescriptions(passes[0].attributes.size() + 4);
 		int vertexSize = 0;
 		for (int a = 0; a < passes[0].attributes.size(); ++a)
 		{
 			vertexAttributeDescriptions[a].binding = 0;
-			// TODO: Make format conform to what the input was.
 			vertexAttributeDescriptions[a].format = GetAttributeFormat(passes[0].attributes[a]);
 			vertexAttributeDescriptions[a].location = a;
 			vertexAttributeDescriptions[a].offset = vertexSize;
 			vertexSize += passes[0].attributes[a].byteCount;
 		}
 		p_->vertexSize = vertexSize;
+		for (int a = passes[0].attributes.size(); a < passes[0].attributes.size() + 4; ++a)
+		{
+			vertexAttributeDescriptions[a].binding = 1;
+			vertexAttributeDescriptions[a].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+			vertexAttributeDescriptions[a].location = a;
+			vertexAttributeDescriptions[a].offset = (a - passes[0].attributes.size()) * 16;
+		}
 
-		VkVertexInputBindingDescription vertexBindingDescription{};
-		vertexBindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-		vertexBindingDescription.stride = vertexSize;
-		vertexBindingDescription.binding = 0;
+		const int descriptionsCount = 2;
+		VkVertexInputBindingDescription vertexBindingDescriptions[descriptionsCount];
+		vertexBindingDescriptions[0] = {};
+		vertexBindingDescriptions[0].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		vertexBindingDescriptions[0].stride = vertexSize;
+		vertexBindingDescriptions[0].binding = 0;
+		
+		vertexBindingDescriptions[1] = {};
+		vertexBindingDescriptions[1].inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+		// model matrix will have 4*4*4 bytes
+		vertexBindingDescriptions[1].stride = 64;
+		vertexBindingDescriptions[1].binding = 1;
 
 		VkPipelineVertexInputStateCreateInfo vertexInput{};
 		vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 		// TODO: Split attributes into multiple buffers.
-		vertexInput.vertexBindingDescriptionCount = 1;
-		vertexInput.pVertexBindingDescriptions = &vertexBindingDescription;
+		vertexInput.vertexBindingDescriptionCount = descriptionsCount;
+		vertexInput.pVertexBindingDescriptions = vertexBindingDescriptions;
 		vertexInput.vertexAttributeDescriptionCount = (uint32_t)vertexAttributeDescriptions.size();
 		vertexInput.pVertexAttributeDescriptions = vertexAttributeDescriptions.data();
 
