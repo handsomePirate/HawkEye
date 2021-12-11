@@ -4,8 +4,6 @@ Passes:
   -
     type: rasterized
     dim: 3
-    post:
-      #- blur
     shaders:
         vertex: ../../src/shaders/test.vert.glsl
         fragment: ../../src/shaders/test.frag.glsl

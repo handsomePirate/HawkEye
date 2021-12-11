@@ -15,12 +15,6 @@ struct PipelinePass
 		Rasterized
 	} type = Type::Undefined;
 
-	enum class PostProcess
-	{
-		Blur
-	};
-	std::vector<PostProcess> postProcess;
-
 	enum class Shader
 	{
 		Vertex,

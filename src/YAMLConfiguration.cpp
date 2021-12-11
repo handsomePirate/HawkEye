@@ -43,23 +43,6 @@ PipelinePass ConfigureLayer(const YAML::Node& passNode)
 		return pass;
 	}
 
-	if (passNode["post"])
-	{
-		for (int p = 0; p < passNode["post"].size(); ++p)
-		{
-			std::string postProcess = passNode["post"][p].as<std::string>();
-
-			if (postProcess == "blur")
-			{
-				pass.postProcess.push_back(PipelinePass::PostProcess::Blur);
-			}
-			else
-			{
-				CoreLogWarn(VulkanLogger, "Pipeline pass: Undefined post processing effect type - %s.", postProcess);
-			}
-		}
-	}
-
 	if (passNode["shaders"])
 	{
 		if (passNode["shaders"]["vertex"])
