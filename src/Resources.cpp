@@ -138,7 +138,7 @@ HawkEye::HTexture HawkEye::UploadTexture(HRendererData rendererData, void* data,
 	submitInfo.pCommandBuffers = &texture->generalCommandBuffer;
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = &texture->operationSemaphore;
-	VulkanCheck(vkQueueSubmit(backendData.generalQueues[0], 1, &submitInfo, texture->uploadFence));
+	VulkanCheck(vkQueueSubmit(backendData.generalQueues[1], 1, &submitInfo, texture->uploadFence));
 
 	return texture;
 }
@@ -253,7 +253,7 @@ HawkEye::HBuffer HawkEye::UploadBuffer(HRendererData rendererData, void* data, i
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &buffer->generalCommandBuffer;
 
-		VulkanCheck(vkQueueSubmit(backendData.generalQueues[0], 1, &submitInfo, buffer->uploadFence));
+		VulkanCheck(vkQueueSubmit(backendData.generalQueues[1], 1, &submitInfo, buffer->uploadFence));
 	}
 	else
 	{
