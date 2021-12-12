@@ -39,8 +39,6 @@ void RecordCommands(int c, const VulkanBackend::BackendData& backendData, HawkEy
 	scissor.extent = VkExtent2D{ (uint32_t)pipelineData->surfaceData->width, (uint32_t)pipelineData->surfaceData->height };
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-	// TODO: Move common commands outside of the loop.
-
 	// TODO: Different binding for different pipeline.
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineData->rasterizationPipeline);
 

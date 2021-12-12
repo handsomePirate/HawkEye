@@ -1,3 +1,4 @@
+#include "Camera.hpp"
 #include <HawkEye/HawkEyeAPI.hpp>
 #include <EverViewport/WindowAPI.hpp>
 #include <SoftwareCore/Filesystem.hpp>
@@ -9,6 +10,9 @@
 #include <iostream>
 
 HawkEye::Pipeline renderingPipeline;
+const int windowWidth = 720;
+const int windowHeight = 480;
+ControllerModule::Scene::Camera camera(windowWidth / float(windowHeight));
 
 // Callbacks.
 
@@ -32,6 +36,10 @@ void Render()
 
 void Resize(int width, int height)
 {
+	camera.SetAspect(width / float(height));
+	camera.UpdateViewProjectionMatrices();
+	Eigen::Matrix4f viewProjectionMatrix = camera.GetProjectionMatrix() * camera.GetViewMatrix();
+	renderingPipeline.SetUniform("camera", viewProjectionMatrix);
 	renderingPipeline.Resize(width, height);
 }
 
@@ -57,8 +65,6 @@ int main(int argc, char* argv[])
 		// Window.
 
 		EverViewport::WindowCallbacks windowCallbacks{ Render, Resize };
-		const int windowWidth = 720;
-		const int windowHeight = 480;
 		EverViewport::Window testWindow(50, 50, windowWidth, windowHeight, "test", windowCallbacks);
 
 		// Pipeline.
@@ -187,18 +193,8 @@ int main(int argc, char* argv[])
 
 		renderingPipeline.UseBuffers(drawBuffers, drawBufferCount);
 
-		struct Camera
-		{
-			float data[16] =
-			{
-				1.f, 0.f, 0.f, 0.f,
-				0.f, 1.f, 0.f, 0.f,
-				0.f, 0.f, 1.f, 0.f,
-				0.f, 0.f, 0.f, 1.f,
-			};
-		} camera;
-
-		renderingPipeline.SetUniform("camera", camera);
+		Eigen::Matrix4f viewProjectionMatrix = camera.GetProjectionMatrix() * camera.GetViewMatrix();
+		renderingPipeline.SetUniform("camera", viewProjectionMatrix);
 
 		// Rendering loop.
 

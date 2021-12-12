@@ -12,6 +12,7 @@ project "Test"
 		SoftwareCoreInclude,
 		HawkEyeInclude,
 		EverViewportInclude,
+		"../../ext/Eigen",
 		"$(VULKAN_SDK)/include"
 	}
 	

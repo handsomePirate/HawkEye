@@ -12,4 +12,5 @@ layout(set = 0, binding = 0) uniform sampler2D textureSampler;
 void main()
 {
 	outFragColor = vec4(texture(textureSampler, uv).rgb, 1);
+	//outFragColor = vec4(1, 0, 0, 1);
 }
