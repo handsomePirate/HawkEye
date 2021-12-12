@@ -146,6 +146,11 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	std::vector<VkDescriptorSetLayout> passUniformLayouts(passes.size());
 	for (int p = 0; p < passes.size(); ++p)
 	{
+		p_->passData[p].inheritDepth = passes[p].inheritDepth;
+		if (p == 0 && passes[p].inheritDepth)
+		{
+			CoreLogInfo(VulkanLogger, "Pipeline pass: Inheriting depth for the first pass is meaningless.");
+		}
 		if (!passes[p].material.empty())
 		{
 			for (int u = 0; u < passes[p].material.size(); ++u)

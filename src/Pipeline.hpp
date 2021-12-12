@@ -20,6 +20,7 @@ struct FrameData
 struct PipelinePassData
 {
 	int dimension;
+	bool inheritDepth = false;
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 	std::vector<VkShaderModule> shaderModules;
 	VkPipeline computePipeline = VK_NULL_HANDLE;

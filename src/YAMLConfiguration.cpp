@@ -27,6 +27,14 @@ PipelinePass ConfigureLayer(const YAML::Node& passNode)
 		}
 	}
 
+	if (passNode["inherit"])
+	{
+		if (passNode["inherit"]["depth"])
+		{
+			pass.inheritDepth = passNode["inherit"]["depth"].as<bool>();
+		}
+	}
+
 	std::string type = passNode["type"].as<std::string>();
 
 	if (type == "computed")

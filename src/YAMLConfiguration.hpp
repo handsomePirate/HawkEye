@@ -27,6 +27,7 @@ struct PipelineUniforms
 struct PipelinePass
 {
 	int dimension;
+	bool inheritDepth = false;
 
 	enum class Type
 	{

@@ -43,6 +43,27 @@ void CommandUtils::Record(int c, const VulkanBackend::BackendData& backendData, 
 
 	for (int p = 0; p < pipelineData->passData.size(); ++p)
 	{
+		if (pipelineData->passData[p].materials.size() == 0)
+		{
+			continue;
+		}
+
+		if (!pipelineData->passData[p].inheritDepth && p > 0)
+		{
+			VkClearAttachment clearAttachment{};
+			clearAttachment.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+			VkClearValue clearValue{};
+			clearValue.depthStencil = { 1.f, 0 };
+			clearAttachment.clearValue = clearValue;
+			VkClearRect clearRect{};
+			clearRect.baseArrayLayer = 0;
+			clearRect.layerCount = 1;
+			VkRect2D rect{};
+			rect.extent.width = pipelineData->surfaceData->width;
+			rect.extent.height = pipelineData->surfaceData->height;
+			clearRect.rect = rect;
+			vkCmdClearAttachments(commandBuffer, 1, &clearAttachment, 1, &clearRect);
+		}
 		// TODO: Different binding for different pipeline.
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineData->passData[p].rasterizationPipeline);
 
