@@ -613,6 +613,14 @@ void HawkEye::Pipeline::Resize(int width, int height)
 	}
 }
 
+void HawkEye::Pipeline::Refresh()
+{
+	for (int c = 0; c < p_->frameData.size(); ++c)
+	{
+		p_->frameData[c].dirty = true;
+	}
+}
+
 void HawkEye::Pipeline::ReleaseResources()
 {
 	// Stop using buffer resources.

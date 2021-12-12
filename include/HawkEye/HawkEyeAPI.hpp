@@ -37,6 +37,7 @@ namespace HawkEye
 
 		void DrawFrame();
 		void Resize(int width, int height);
+		void Refresh();
 
 		// Unlock all resources used by the pipeline. They can be deleted afterwards.
 		void ReleaseResources();

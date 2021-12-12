@@ -7,7 +7,7 @@ using namespace ControllerModule;
 using namespace Scene;
 
 Camera::Camera(const float aspect) :
-	position_(3.f, 2.f, 5.f),
+	position_(0.f, 0.f, 2.f),
 	target_(0.f, 0.f, 0.f),
 	up_(0.f, 1.f, 0.f),
 	zNear_(0.01f),

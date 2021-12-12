@@ -1,6 +1,7 @@
 #include "Camera.hpp"
 #include <HawkEye/HawkEyeAPI.hpp>
 #include <EverViewport/WindowAPI.hpp>
+#include <SoftwareCore/Input.hpp>
 #include <SoftwareCore/Filesystem.hpp>
 #include <SoftwareCore/Logger.hpp>
 #include <HawkEye/Logger.hpp>
@@ -18,7 +19,36 @@ ControllerModule::Scene::Camera camera(windowWidth / float(windowHeight));
 
 void Print(const char* message, Core::LoggerSeverity severity)
 {
-	printf(message);
+	const char* traceSev = "[Trace] ";
+	const char* debugSev = "[Debug] ";
+	const char* infoSev = "[Info] ";
+	const char* warnSev = "[Warn] ";
+	const char* errorSev = "[Error] ";
+	const char* fatalSev = "[Fatal] ";
+
+	switch (severity)
+	{
+	case Core::LoggerSeverity::Trace:
+		std::cout << traceSev;
+		break;
+	case Core::LoggerSeverity::Debug:
+		std::cout << debugSev;
+		break;
+	case Core::LoggerSeverity::Info:
+		std::cout << infoSev;
+		break;
+	case Core::LoggerSeverity::Warn:
+		std::cout << warnSev;
+		break;
+	case Core::LoggerSeverity::Error:
+		std::cout << errorSev;
+		break;
+	case Core::LoggerSeverity::Fatal:
+		std::cout << fatalSev;
+		break;
+	}
+
+	std::cout << message;
 }
 
 #ifdef _WIN32
@@ -50,6 +80,67 @@ void Resize(int width, int height)
 		renderingPipeline.SetUniform("camera", viewProjectionMatrix, 0);
 		renderingPipeline.Resize(width, height);
 	}
+}
+
+void HandleInput(float timeDelta)
+{
+	static uint16_t lastMouseX = 0;
+	static uint16_t lastMouseY = 0;
+
+	bool forward = CoreInput.IsKeyPressed(Core::Input::Keys::W) || CoreInput.IsKeyPressed(Core::Input::Keys::Up);
+	bool back = CoreInput.IsKeyPressed(Core::Input::Keys::S) || CoreInput.IsKeyPressed(Core::Input::Keys::Down);
+	bool left = CoreInput.IsKeyPressed(Core::Input::Keys::A) || CoreInput.IsKeyPressed(Core::Input::Keys::Left);
+	bool right = CoreInput.IsKeyPressed(Core::Input::Keys::D) || CoreInput.IsKeyPressed(Core::Input::Keys::Right);
+
+	bool up = CoreInput.IsKeyPressed(Core::Input::Keys::R);
+	bool down = CoreInput.IsKeyPressed(Core::Input::Keys::F);
+
+	bool shift = CoreInput.IsKeyPressed(Core::Input::Keys::Shift);
+
+	//const float moveSensitivity = shift ? 120.f : 50.f;
+	const float moveSensitivity = .002f;
+	const float forwardDelta =
+		((forward ? moveSensitivity : -moveSensitivity) +
+			(back ? -moveSensitivity : moveSensitivity))
+		* timeDelta;
+	const float rightDelta =
+		((right ? moveSensitivity : -moveSensitivity) +
+			(left ? -moveSensitivity : moveSensitivity))
+		* timeDelta;
+	const float upDelta =
+		((up ? moveSensitivity : -moveSensitivity) +
+			(down ? -moveSensitivity : moveSensitivity))
+		* timeDelta;
+
+	camera.TranslateLocal({ rightDelta, upDelta, forwardDelta });
+
+	uint16_t mouseX = CoreInput.GetMouseX();
+	uint16_t mouseY = CoreInput.GetMouseY();
+	const bool isMousePressedLeft = CoreInput.IsMouseButtonPressed(Core::Input::MouseButtons::Left);
+	const float mouseSensitivity = 0.005f;
+
+	if (isMousePressedLeft)
+	{
+		const int deltaX = int(lastMouseX) - int(mouseX);
+		const int deltaY = int(lastMouseY) - int(mouseY);
+
+		const float xMove = mouseSensitivity * deltaX * timeDelta;
+		const float yMove = mouseSensitivity * deltaY * timeDelta;
+
+		camera.Rotate({ 0, 1, 0 }, -xMove);
+		camera.RotateLocal({ 1, 0, 0 }, yMove);
+	}
+
+	camera.UpdateViewProjectionMatrices();
+
+	if (renderingPipeline.Configured())
+	{
+		Eigen::Matrix4f viewProjectionMatrix = camera.GetProjectionMatrix() * camera.GetViewMatrix();
+		renderingPipeline.SetUniform("camera", viewProjectionMatrix, 0);
+	}
+
+	lastMouseX = mouseX;
+	lastMouseY = mouseY;
 }
 
 int main(int argc, char* argv[])
@@ -208,13 +299,19 @@ int main(int argc, char* argv[])
 		// Rendering loop.
 
 		//uint32_t test = 0;
-
+		float timeDelta = 1;
+		auto before = std::chrono::high_resolution_clock::now();
 		while (!testWindow.ShouldClose())
 		{
 			testWindow.PollMessages();
 			//renderingPipeline.UseBuffers(&drawBuffers[test], 1);
 			//test = (test + 1) % 2;
 			renderingPipeline.DrawFrame();
+
+			auto now = std::chrono::high_resolution_clock::now();
+			timeDelta = std::chrono::duration<float, std::milli>(now - before).count();
+			before = std::chrono::high_resolution_clock::now();
+			HandleInput(timeDelta);
 		}
 
 		// Releasing of resources.
@@ -235,7 +332,6 @@ int main(int argc, char* argv[])
 		renderingPipeline.Shutdown();
 
 		HawkEye::Shutdown();
-
 	}
 	catch (const std::exception& e)
 	{
