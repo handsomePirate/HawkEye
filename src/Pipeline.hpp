@@ -66,6 +66,5 @@ struct HawkEye::Pipeline::Private
 
 namespace PipelineUtils
 {
-	void RecordCommands(int c, const VulkanBackend::BackendData& backendData, HawkEye::Pipeline::Private* pipelineData);
 	VkFormat GetAttributeFormat(const PipelinePass::VertexAttribute& vertexAttribute);
 }

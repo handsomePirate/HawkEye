@@ -1,6 +1,7 @@
 #include "Pipeline.hpp"
 #include "Resources.hpp"
 #include "Descriptors.hpp"
+#include "Commands.hpp"
 #include <VulkanBackend/Logger.hpp>
 #include <VulkanBackend/ErrorCheck.hpp>
 #define CompilerLogger VulkanLogger
@@ -286,7 +287,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	for (int c = 0; c < p_->frameData.size(); ++c)
 	{
 		p_->frameData[c].commandBuffer = commandBuffers[c];
-		PipelineUtils::RecordCommands(c, backendData, p_);
+		CommandUtils::Record(c, backendData, p_);
 	}
 
 	VulkanBackend::DestroyDescriptorSetLayout(backendData, commonDescriptorSetLayout);
@@ -471,7 +472,7 @@ void HawkEye::Pipeline::DrawFrame()
 	if (p_->frameData[currentImageIndex].dirty)
 	{
 		VulkanBackend::ResetCommandBuffer(p_->frameData[currentImageIndex].commandBuffer);
-		PipelineUtils::RecordCommands(currentImageIndex, backendData, p_);
+		CommandUtils::Record(currentImageIndex, backendData, p_);
 	}
 
 	static VkPipelineStageFlags pipelineStageWait = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
