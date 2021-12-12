@@ -22,6 +22,11 @@ VkFormat GetAttributeFormat(const PipelinePass::VertexAttribute& vertexAttribute
 	return (VkFormat)(VK_FORMAT_R32_UINT + (vertexAttribute.byteCount / 4 - 1) * 3 + (int)vertexAttribute.type);
 }
 
+bool HawkEye::Pipeline::Configured() const
+{
+	return p_->backendData != nullptr;
+}
+
 void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* configFile, int width, int height,
 	void* windowHandle, void* windowConnection)
 {
@@ -533,6 +538,9 @@ void HawkEye::Pipeline::Resize(int width, int height)
 {
 	if (!p_->backendData || width == 0 || height == 0)
 	{
+		VulkanBackend::SurfaceData& surfaceData = *p_->surfaceData.get();
+		surfaceData.width = width;
+		surfaceData.height = height;
 		return;
 	}
 

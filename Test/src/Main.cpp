@@ -31,16 +31,25 @@ void PrintWin32(const char* message, Core::LoggerSeverity severity)
 
 void Render()
 {
-	renderingPipeline.DrawFrame();
+	if (renderingPipeline.Configured())
+	{
+		renderingPipeline.DrawFrame();
+	}
 }
 
 void Resize(int width, int height)
 {
-	camera.SetAspect(width / float(height));
-	camera.UpdateViewProjectionMatrices();
-	Eigen::Matrix4f viewProjectionMatrix = camera.GetProjectionMatrix() * camera.GetViewMatrix();
-	renderingPipeline.SetUniform("camera", viewProjectionMatrix);
-	renderingPipeline.Resize(width, height);
+	if (width != 0 && height != 0)
+	{
+		camera.SetAspect(width / float(height));
+		camera.UpdateViewProjectionMatrices();
+	}
+	if (renderingPipeline.Configured())
+	{
+		Eigen::Matrix4f viewProjectionMatrix = camera.GetProjectionMatrix() * camera.GetViewMatrix();
+		renderingPipeline.SetUniform("camera", viewProjectionMatrix);
+		renderingPipeline.Resize(width, height);
+	}
 }
 
 int main(int argc, char* argv[])

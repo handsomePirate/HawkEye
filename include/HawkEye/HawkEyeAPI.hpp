@@ -18,6 +18,8 @@ namespace HawkEye
 		Pipeline();
 		~Pipeline();
 
+		bool Configured() const;
+
 		void Configure(HRendererData rendererData, const char* configFile, int width, int height,
 			void* windowHandle = nullptr, void* windowConnection = nullptr);
 		void Shutdown();
