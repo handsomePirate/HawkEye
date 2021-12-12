@@ -2,6 +2,7 @@
 #include "Resources.hpp"
 #include "Descriptors.hpp"
 #include "Commands.hpp"
+#include "Framebuffer.hpp"
 #include <VulkanBackend/Logger.hpp>
 #include <VulkanBackend/ErrorCheck.hpp>
 #define CompilerLogger VulkanLogger
@@ -34,15 +35,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	auto& passes = p_->passes;
 	if (configData["Pipeline"])
 	{
-		if (configData["Pipeline"]["samples"])
-		{
-			p_->samples = configData["Pipeline"]["samples"].as<int>();
-		}
-		else
-		{
-			CoreLogWarn(VulkanLogger, "Pipeline: Sample count not defined, 1 assumed.");
-			p_->samples = 1;
-		}
+		ConfigureCommon(configData["Pipeline"], p_->pipelineTargets, p_->samples);
 		
 		if (configData["Pipeline"]["passes"])
 		{
@@ -116,12 +109,32 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		}
 	}
 
-	VkRenderPass renderPass = VulkanBackend::CreateRenderPass(backendData, surfaceData);
+	p_->passData.resize(passes.size());
+
+	p_->targets.resize(p_->pipelineTargets.size());
+	for (int t = 0; t < p_->pipelineTargets.size(); ++t)
+	{
+		if (p_->pipelineTargets[t] == PipelineTarget::Depth)
+		{
+			p_->targets[(int)PipelineTarget::Depth] = FramebufferUtils::CreateDepthTarget(backendData, surfaceData, width, height);
+			p_->hasDepthTarget = true;
+		}
+	}
+
+	VkRenderPass renderPass = VulkanBackend::CreateRenderPass(backendData, surfaceData, p_->hasDepthTarget);
 	p_->renderPass = renderPass;
 
 	for (int v = 0; v < p_->swapchainImageViews.size(); ++v)
 	{
-		VkFramebuffer framebuffer = VulkanBackend::CreateFramebuffer(backendData, width, height, renderPass, { p_->swapchainImageViews[v] });
+		std::vector<VkImageView> attachments =
+		{
+			p_->swapchainImageViews[v]
+		};
+		if (p_->hasDepthTarget)
+		{
+			attachments.push_back(p_->targets[(int)PipelineTarget::Depth].imageView);
+		}
+		VkFramebuffer framebuffer = VulkanBackend::CreateFramebuffer(backendData, width, height, renderPass, attachments);
 		p_->framebuffers.push_back(framebuffer);
 	}
 
@@ -130,7 +143,6 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 
 	p_->frameData.resize(p_->swapchainImageViews.size());
 
-	p_->passData.resize(passes.size());
 	std::vector<VkDescriptorSetLayout> passUniformLayouts(passes.size());
 	for (int p = 0; p < passes.size(); ++p)
 	{
@@ -195,7 +207,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		if (passes[p].type == PipelinePass::Type::Rasterized)
 		{
 			// TODO: Sample count.
-			std::vector<VkDynamicState> dynamiceStates =
+			std::vector<VkDynamicState> dynamicStates =
 			{
 				VK_DYNAMIC_STATE_SCISSOR,
 				VK_DYNAMIC_STATE_VIEWPORT
@@ -259,8 +271,9 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 				VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL,
 				VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE,
 				VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+				// TODO: Make depth inheritable, etc.
 				VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS,
-				VK_SAMPLE_COUNT_1_BIT, dynamiceStates, vertexInput, renderPass, pipelineLayout, shaderStages, pipelineCache);
+				VK_SAMPLE_COUNT_1_BIT, dynamicStates, vertexInput, renderPass, pipelineLayout, shaderStages, pipelineCache);
 		}
 		else
 		{
@@ -368,6 +381,10 @@ void HawkEye::Pipeline::Shutdown()
 			VulkanBackend::DestroyFence(backendData, p_->frameFences[f]);
 		}
 
+		for (int t = 0; t < p_->targets.size(); ++t)
+		{
+			FramebufferUtils::DestroyTarget(backendData, p_->targets[t]);
+		}
 		for (int p = 0; p < p_->passes.size(); ++p)
 		{
 			for (int l = 0; l < p_->passData[p].descriptorSetLayouts.size(); ++l)
@@ -542,6 +559,14 @@ void HawkEye::Pipeline::Resize(int width, int height)
 		VulkanBackend::DestroyImageView(backendData, p_->swapchainImageViews[i]);
 	}
 
+	for (int p = 0; p < p_->passes.size(); ++p)
+	{
+		for (int t = 0; t < p_->targets.size(); ++t)
+		{
+			FramebufferUtils::DestroyTarget(backendData, p_->targets[t]);
+		}
+	}
+
 	if (p_->surfaceData->surface)
 	{
 		VulkanBackend::GetSurfaceCapabilities(backendData, surfaceData);
@@ -563,10 +588,22 @@ void HawkEye::Pipeline::Resize(int width, int height)
 		}
 	}
 
+	if (p_->hasDepthTarget == true)
+	{
+		p_->targets[(int)PipelineTarget::Depth] = FramebufferUtils::CreateDepthTarget(backendData, surfaceData, width, height);
+	}
+
 	for (int f = 0; f < p_->framebuffers.size(); ++f)
 	{
-		VkFramebuffer framebuffer = VulkanBackend::CreateFramebuffer(backendData, width, height, p_->renderPass,
-			{ p_->swapchainImageViews[f] });
+		std::vector<VkImageView> attachments =
+		{
+			p_->swapchainImageViews[f]
+		};
+		if (p_->hasDepthTarget)
+		{
+			attachments.push_back(p_->targets[(int)PipelineTarget::Depth].imageView);
+		}
+		VkFramebuffer framebuffer = VulkanBackend::CreateFramebuffer(backendData, width, height, p_->renderPass, attachments);
 		p_->framebuffers[f] = framebuffer;
 	}
 

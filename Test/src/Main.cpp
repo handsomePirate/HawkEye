@@ -47,7 +47,7 @@ void Resize(int width, int height)
 	if (renderingPipeline.Configured())
 	{
 		Eigen::Matrix4f viewProjectionMatrix = camera.GetProjectionMatrix() * camera.GetViewMatrix();
-		renderingPipeline.SetUniform("camera", viewProjectionMatrix);
+		renderingPipeline.SetUniform("camera", viewProjectionMatrix, 0);
 		renderingPipeline.Resize(width, height);
 	}
 }

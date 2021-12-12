@@ -4,6 +4,10 @@ Pipeline:
     samples: 1
     # This specifies per view descriptors - will get a camera automatically
     uniforms:
+    targets:
+      - color
+      - depth
+    # - sample
     passes:
       -
         type: rasterized
@@ -11,10 +15,6 @@ Pipeline:
         shaders:
             vertex: ../../src/shaders/test.vert.glsl
             fragment: ../../src/shaders/test.frag.glsl
-        targets:
-          - color
-        # - depth
-        # - sample
         uniforms:
         # This specifies per model descriptors - will get a transform automatically
         material:

@@ -1,6 +1,7 @@
 #pragma once
 #include "HawkEye/HawkEyeAPI.hpp"
 #include "YAMLConfiguration.hpp"
+#include "Framebuffer.hpp"
 #include <VulkanBackend/VulkanBackendAPI.hpp>
 #include <map>
 
@@ -40,7 +41,10 @@ struct PipelinePassData
 struct HawkEye::Pipeline::Private
 {
 	int samples = 0;
+	bool hasDepthTarget = false;
 	PipelineUniforms uniformInfo;
+	std::vector<PipelineTarget> pipelineTargets;
+	std::vector<Target> targets;
 	std::vector<PipelinePass> passes;
 	std::vector<PipelinePassData> passData;
 	VulkanBackend::BackendData* backendData = nullptr;

@@ -59,37 +59,6 @@ PipelinePass ConfigureLayer(const YAML::Node& passNode)
 		}
 	}
 
-
-	if (passNode["targets"])
-	{
-		for (int p = 0; p < passNode["targets"].size(); ++p)
-		{
-			std::string targets = passNode["targets"][p].as<std::string>();
-
-			if (targets == "color")
-			{
-				pass.targets.push_back(PipelinePass::Target::Color);
-			}
-			else if (targets == "depth")
-			{
-				pass.targets.push_back(PipelinePass::Target::Depth);
-			}
-			else if (targets == "sample")
-			{
-				pass.targets.push_back(PipelinePass::Target::Sample);
-			}
-			else
-			{
-				CoreLogWarn(VulkanLogger, "Pipeline pass: Undefined target type - %s.", targets);
-			}
-		}
-	}
-	else
-	{
-		CoreLogWarn(VulkanLogger, "Pipeline pass: No targets defined, color assumed.");
-		pass.targets.push_back(PipelinePass::Target::Color);
-	}
-
 	if (passNode["vertex attributes"])
 	{
 		for (int a = 0; a < passNode["vertex attributes"].size(); ++a)
@@ -167,6 +136,49 @@ PipelinePass ConfigureLayer(const YAML::Node& passNode)
 	ConfigureUniforms(passNode["uniforms"], pass.uniforms);
 
 	return pass;
+}
+
+void ConfigureCommon(const YAML::Node& passNode, std::vector<PipelineTarget>& pipelineTargets, int& samples)
+{
+	if (passNode["samples"])
+	{
+		samples = passNode["samples"].as<int>();
+	}
+	else
+	{
+		CoreLogWarn(VulkanLogger, "Pipeline: Sample count not defined, 1 assumed.");
+		samples = 1;
+	}
+
+	if (passNode["targets"])
+	{
+		for (int p = 0; p < passNode["targets"].size(); ++p)
+		{
+			std::string targets = passNode["targets"][p].as<std::string>();
+
+			if (targets == "color")
+			{
+				pipelineTargets.push_back(PipelineTarget::Color);
+			}
+			else if (targets == "depth")
+			{
+				pipelineTargets.push_back(PipelineTarget::Depth);
+			}
+			else if (targets == "sample")
+			{
+				pipelineTargets.push_back(PipelineTarget::Sample);
+			}
+			else
+			{
+				CoreLogWarn(VulkanLogger, "Pipeline pass: Undefined target type - %s.", targets);
+			}
+		}
+	}
+	else
+	{
+		CoreLogWarn(VulkanLogger, "Pipeline pass: No targets defined, color assumed.");
+		pipelineTargets.push_back(PipelineTarget::Color);
+	}
 }
 
 void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uniformData)

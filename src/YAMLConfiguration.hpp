@@ -12,6 +12,13 @@ struct UniformData
 	VkShaderStageFlags visibility;
 };
 
+enum class PipelineTarget
+{
+	Color,
+	Depth,
+	Sample
+};
+
 struct PipelineUniforms
 {
 	std::vector<UniformData> uniforms;
@@ -36,15 +43,6 @@ struct PipelinePass
 	};
 	std::vector<std::pair<Shader, std::string>> shaders;
 
-	enum class Target
-	{
-		Color,
-		Depth,
-		Sample
-	};
-
-	std::vector<Target> targets;
-
 	struct VertexAttribute
 	{
 		int byteCount;
@@ -62,4 +60,5 @@ struct PipelinePass
 };
 
 PipelinePass ConfigureLayer(const YAML::Node& passNode);
+void ConfigureCommon(const YAML::Node& passNode, std::vector<PipelineTarget>& pipelineTargets, int& samples);
 void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uniformData);

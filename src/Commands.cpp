@@ -11,15 +11,17 @@ void CommandUtils::Record(int c, const VulkanBackend::BackendData& backendData, 
 
 	VulkanCheck(vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo));
 
-	VkClearValue clearValues[1];
+	const int clearValueCount = 2;
+	VkClearValue clearValues[clearValueCount];
 	clearValues[0].color = { 0.f, 0.f, 0.f };
+	clearValues[1].depthStencil = { 1.f, 0 };
 
 	VkRenderPassBeginInfo renderPassBeginInfo{};
 	renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassBeginInfo.renderPass = pipelineData->renderPass;
 	renderPassBeginInfo.renderArea.extent.width = pipelineData->surfaceData->width;
 	renderPassBeginInfo.renderArea.extent.height = pipelineData->surfaceData->height;
-	renderPassBeginInfo.clearValueCount = 1;
+	renderPassBeginInfo.clearValueCount = clearValueCount - (pipelineData->hasDepthTarget ? 0 : 1);
 	renderPassBeginInfo.pClearValues = clearValues;
 	renderPassBeginInfo.framebuffer = pipelineData->framebuffers[c];
 	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
