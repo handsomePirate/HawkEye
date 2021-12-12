@@ -4,6 +4,19 @@
 #include <string>
 #include <vulkan/vulkan.hpp>
 
+struct UniformData
+{
+	std::string name;
+	int size;
+	VkDescriptorType type;
+	VkShaderStageFlags visibility;
+};
+
+struct PipelineUniforms
+{
+	std::vector<UniformData> uniforms;
+};
+
 struct PipelinePass
 {
 	int dimension;
@@ -32,8 +45,6 @@ struct PipelinePass
 
 	std::vector<Target> targets;
 
-	int samples = 0;
-
 	struct VertexAttribute
 	{
 		int byteCount;
@@ -46,16 +57,9 @@ struct PipelinePass
 	};
 	std::vector<VertexAttribute> attributes;
 
-	// TODO: The int for size might not be required.
-	struct UniformData
-	{
-		std::string name;
-		int size;
-		VkDescriptorType type;
-		VkShaderStageFlags visibility;
-	};
 	std::vector<UniformData> material;
 	std::vector<UniformData> uniforms;
 };
 
 PipelinePass ConfigureLayer(const YAML::Node& passNode);
+void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uniformData);

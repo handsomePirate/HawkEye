@@ -90,16 +90,6 @@ PipelinePass ConfigureLayer(const YAML::Node& passNode)
 		pass.targets.push_back(PipelinePass::Target::Color);
 	}
 
-	if (passNode["samples"])
-	{
-		pass.samples = passNode["samples"].as<int>();
-	}
-	else
-	{
-		CoreLogWarn(VulkanLogger, "Pipeline pass: Sample count not defined, 1 assumed.");
-		pass.samples = 1;
-	}
-
 	if (passNode["vertex attributes"])
 	{
 		for (int a = 0; a < passNode["vertex attributes"].size(); ++a)
@@ -156,226 +146,128 @@ PipelinePass ConfigureLayer(const YAML::Node& passNode)
 		pass.attributes.push_back({ 12, PipelinePass::VertexAttribute::Type::Float });
 	}
 
+	ConfigureUniforms(passNode["material"], pass.material);
+	PipelineUniforms data;
 	if (pass.dimension == 3)
 	{
 		pass.uniforms.push_back(
 			{
-				"camera", constexpr(/*bytes*/4 * /*width*/4 * /*height*/4),
+				"camera", (/*bytes*/4 * /*width*/4 * /*height*/4),
 				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL
 			});
 	}
 	else // pass.dimension == 2
 	{
 		pass.uniforms.push_back(
-			{
-				"camera", constexpr(/*bytes*/4 * /*width*/3 * /*height*/3),
-				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL
-			});
-	}
-
-	if (passNode["uniforms"])
-	{
-		std::regex bRegex("[0-9]+");
-		for (int u = 0; u < passNode["uniforms"].size(); ++u)
 		{
-			VkDescriptorType type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			if (passNode["uniforms"][u]["type"])
-			{
-				std::string typeStr = passNode["uniforms"][u]["type"].as<std::string>();
-				if (typeStr != "uniform")
-				{
-					if (typeStr == "texture")
-					{
-						type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-					}
-				}
-			}
-
-			VkShaderStageFlags visibility = VK_SHADER_STAGE_ALL;
-			if (passNode["uniforms"][u]["visibility"])
-			{
-				visibility = 0;
-				std::vector<std::string> visibilityArr;
-				std::string visibilityStr = passNode["uniforms"][u]["visibility"].as<std::string>();
-				int lastDel = 0;
-				int currDel = (int)visibilityStr.find('|');
-				bool hadSplit = false;
-				// TODO: Whitespaces.
-				while (currDel != -1)
-				{
-					visibilityArr.push_back(visibilityStr.substr(lastDel, currDel - lastDel));
-					lastDel = currDel + 1;
-					currDel = (int)visibilityStr.find('|', lastDel);
-					hadSplit = true;
-				}
-				visibilityArr.push_back(visibilityStr.substr(lastDel));
-
-				for (int s = 0; s < visibilityArr.size(); ++s)
-				{
-					if (visibilityArr[s] == "vertex")
-					{
-						visibility |= VK_SHADER_STAGE_VERTEX_BIT;
-					}
-					else if (visibilityArr[s] == "fragment")
-					{
-						visibility |= VK_SHADER_STAGE_FRAGMENT_BIT;
-					}
-					else if (visibilityArr[s] == "geometry")
-					{
-						visibility |= VK_SHADER_STAGE_GEOMETRY_BIT;
-					}
-					else if (visibilityArr[s] == "tesselation control")
-					{
-						visibility |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-					}
-					else if (visibilityArr[s] == "tesslation evaluation")
-					{
-						visibility |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-					}
-					else if (visibilityArr[s] == "compute")
-					{
-						visibility |= VK_SHADER_STAGE_COMPUTE_BIT;
-					}
-					else if (visibilityArr[s] == "graphics")
-					{
-						visibility |= VK_SHADER_STAGE_ALL_GRAPHICS;
-					}
-					else if (visibilityArr[s] == "all")
-					{
-						visibility |= VK_SHADER_STAGE_ALL;
-					}
-				}
-			}
-			
-			int size = 0;
-			if (type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER && passNode["uniforms"][u]["size"])
-			{
-				CoreLogWarn(VulkanLogger, "Pipeline pass: Size is irrelevant for texture uniforms - skipping.");
-			}
-			if (type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-			{
-				if (!passNode["uniforms"][u]["size"])
-				{
-					CoreLogError(VulkanLogger, "Pipeline pass: Missing uniform size - skipping uniform.");
-					continue;
-				}
-				else
-				{
-					size = passNode["uniforms"][u]["size"].as<int>();
-				}
-			}
-
-			pass.uniforms.push_back(
-				{
-					passNode["uniforms"][u]["name"].as<std::string>(),
-					size, type, visibility
-				});
-		}
+			"camera", (/*bytes*/4 * /*width*/3 * /*height*/3),
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL
+		});
 	}
-
-	if (passNode["material"])
-	{
-		std::regex bRegex("[0-9]+");
-		for (int u = 0; u < passNode["material"].size(); ++u)
-		{
-			VkDescriptorType type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			if (passNode["material"][u]["type"])
-			{
-				std::string typeStr = passNode["material"][u]["type"].as<std::string>();
-				if (typeStr != "uniform")
-				{
-					if (typeStr == "texture")
-					{
-						type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-					}
-				}
-			}
-
-			VkShaderStageFlags visibility = VK_SHADER_STAGE_ALL;
-			if (passNode["material"][u]["visibility"])
-			{
-				visibility = 0;
-				std::vector<std::string> visibilityArr;
-				std::string visibilityStr = passNode["material"][u]["visibility"].as<std::string>();
-				int lastDel = 0;
-				int currDel = (int)visibilityStr.find('|');
-				bool hadSplit = false;
-				// TODO: Whitespaces.
-				while (currDel != -1)
-				{
-					visibilityArr.push_back(visibilityStr.substr(lastDel, currDel - lastDel));
-					lastDel = currDel + 1;
-					currDel = (int)visibilityStr.find('|', lastDel);
-					hadSplit = true;
-				}
-				visibilityArr.push_back(visibilityStr.substr(lastDel));
-
-				for (int s = 0; s < visibilityArr.size(); ++s)
-				{
-					if (visibilityArr[s] == "vertex")
-					{
-						visibility |= VK_SHADER_STAGE_VERTEX_BIT;
-					}
-					else if (visibilityArr[s] == "fragment")
-					{
-						visibility |= VK_SHADER_STAGE_FRAGMENT_BIT;
-					}
-					else if (visibilityArr[s] == "geometry")
-					{
-						visibility |= VK_SHADER_STAGE_GEOMETRY_BIT;
-					}
-					else if (visibilityArr[s] == "tesselation control")
-					{
-						visibility |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-					}
-					else if (visibilityArr[s] == "tesslation evaluation")
-					{
-						visibility |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-					}
-					else if (visibilityArr[s] == "compute")
-					{
-						visibility |= VK_SHADER_STAGE_COMPUTE_BIT;
-					}
-					else if (visibilityArr[s] == "graphics")
-					{
-						visibility |= VK_SHADER_STAGE_ALL_GRAPHICS;
-					}
-					else if (visibilityArr[s] == "all")
-					{
-						visibility |= VK_SHADER_STAGE_ALL;
-					}
-				}
-			}
-
-			int size = 0;
-			if (type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER && passNode["material"][u]["size"])
-			{
-				CoreLogWarn(VulkanLogger, "Pipeline pass: Size is irrelevant for texture uniforms - skipping.");
-			}
-			if (type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-			{
-				if (!passNode["material"][u]["size"])
-				{
-					CoreLogError(VulkanLogger, "Pipeline pass: Missing uniform size - skipping uniform.");
-					continue;
-				}
-				else
-				{
-					size = passNode["material"][u]["size"].as<int>();
-				}
-			}
-			else
-			{
-				size = 8;
-			}
-
-			pass.material.push_back(
-				{
-					passNode["material"][u]["name"].as<std::string>(),
-					size, type, visibility
-				});
-		}
-	}
+	ConfigureUniforms(passNode["uniforms"], pass.uniforms);
 
 	return pass;
+}
+
+void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uniformData)
+{
+	if (passNode)
+	{
+		std::regex bRegex("[0-9]+");
+		for (int u = 0; u < passNode.size(); ++u)
+		{
+			VkDescriptorType type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			if (passNode[u]["type"])
+			{
+				std::string typeStr = passNode[u]["type"].as<std::string>();
+				if (typeStr != "uniform")
+				{
+					if (typeStr == "texture")
+					{
+						type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+					}
+				}
+			}
+
+			VkShaderStageFlags visibility = VK_SHADER_STAGE_ALL;
+			if (passNode[u]["visibility"])
+			{
+				visibility = 0;
+				std::vector<std::string> visibilityArr;
+				std::string visibilityStr = passNode[u]["visibility"].as<std::string>();
+				int lastDel = 0;
+				int currDel = (int)visibilityStr.find('|');
+				bool hadSplit = false;
+				// TODO: Whitespaces.
+				while (currDel != -1)
+				{
+					visibilityArr.push_back(visibilityStr.substr(lastDel, currDel - lastDel));
+					lastDel = currDel + 1;
+					currDel = (int)visibilityStr.find('|', lastDel);
+					hadSplit = true;
+				}
+				visibilityArr.push_back(visibilityStr.substr(lastDel));
+
+				for (int s = 0; s < visibilityArr.size(); ++s)
+				{
+					if (visibilityArr[s] == "vertex")
+					{
+						visibility |= VK_SHADER_STAGE_VERTEX_BIT;
+					}
+					else if (visibilityArr[s] == "fragment")
+					{
+						visibility |= VK_SHADER_STAGE_FRAGMENT_BIT;
+					}
+					else if (visibilityArr[s] == "geometry")
+					{
+						visibility |= VK_SHADER_STAGE_GEOMETRY_BIT;
+					}
+					else if (visibilityArr[s] == "tesselation control")
+					{
+						visibility |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+					}
+					else if (visibilityArr[s] == "tesslation evaluation")
+					{
+						visibility |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+					}
+					else if (visibilityArr[s] == "compute")
+					{
+						visibility |= VK_SHADER_STAGE_COMPUTE_BIT;
+					}
+					else if (visibilityArr[s] == "graphics")
+					{
+						visibility |= VK_SHADER_STAGE_ALL_GRAPHICS;
+					}
+					else if (visibilityArr[s] == "all")
+					{
+						visibility |= VK_SHADER_STAGE_ALL;
+					}
+				}
+			}
+
+			int size = 0;
+			if (type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER && passNode[u]["size"])
+			{
+				CoreLogWarn(VulkanLogger, "Pipeline uniforms: Size is irrelevant for texture uniforms - skipping.");
+			}
+			if (type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+			{
+				if (!passNode[u]["size"])
+				{
+					CoreLogError(VulkanLogger, "Pipeline uniforms: Missing uniform size - skipping uniform.");
+					continue;
+				}
+				else
+				{
+					size = passNode[u]["size"].as<int>();
+				}
+			}
+
+			uniformData.push_back(
+				{
+					passNode[u]["name"].as<std::string>(),
+					size, type, visibility
+				});
+		}
+	}
 }

@@ -33,7 +33,7 @@ namespace HawkEye
 		};
 		
 		// TODO: Layer.
-		void UseBuffers(DrawBuffer* drawBuffers, int bufferCount);
+		void UseBuffers(DrawBuffer* drawBuffers, int bufferCount, int pass);
 
 		void DrawFrame();
 		void Resize(int width, int height);
@@ -47,15 +47,15 @@ namespace HawkEye
 		uint64_t GetUUID() const;
 
 		template<typename MaterialType>
-		HMaterial CreateMaterial(MaterialType& material)
+		HMaterial CreateMaterial(MaterialType& material, int pass)
 		{
-			return CreateMaterialImpl(&material, sizeof(MaterialType));
+			return CreateMaterialImpl(&material, sizeof(MaterialType), pass);
 		}
 
 		template<typename MaterialType>
-		HMaterial CreateMaterial(MaterialType&& material)
+		HMaterial CreateMaterial(MaterialType&& material, int pass)
 		{
-			return CreateMaterialImpl(&material, sizeof(MaterialType));
+			return CreateMaterialImpl(&material, sizeof(MaterialType), pass);
 		}
 
 		// TODO: Delete material.
@@ -74,12 +74,27 @@ namespace HawkEye
 			SetUniformImpl(name, &data, sizeof(Type));
 		}
 
+		void SetUniform(const std::string& name, HTexture texture, int pass);
+
+		template<typename Type>
+		void SetUniform(const std::string& name, Type& data, int pass)
+		{
+			SetUniformImpl(name, &data, sizeof(Type), pass);
+		}
+
+		template<typename Type>
+		void SetUniform(const std::string& name, Type&& data, int pass)
+		{
+			SetUniformImpl(name, &data, sizeof(Type), pass);
+		}
+
 		struct Private;
 		Private* p_;
 
 	private:
 		void SetUniformImpl(const std::string& name, void* data, int dataSize);
-		HMaterial CreateMaterialImpl(void* data, int dataSize);
+		void SetUniformImpl(const std::string& name, void* data, int dataSize, int pass);
+		HMaterial CreateMaterialImpl(void* data, int dataSize, int pass);
 	};
 
 	// ======================== Textures =======================

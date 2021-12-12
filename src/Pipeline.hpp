@@ -4,55 +4,64 @@
 #include <VulkanBackend/VulkanBackendAPI.hpp>
 #include <map>
 
+struct DescriptorData
+{
+	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+};
+
 struct FrameData
 {
 	bool dirty = true;
 	VkCommandBuffer commandBuffer;
-	VkDescriptorPool descriptorPool;
-	VkDescriptorSet descriptorSet;
 };
 
-struct MaterialData
+struct PipelinePassData
 {
-	VkDescriptorPool descriptorPool;
-	VkDescriptorSet descriptorSet;
+	int dimension;
+	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+	std::vector<VkShaderModule> shaderModules;
+	VkPipeline computePipeline = VK_NULL_HANDLE;
+	VkPipeline rasterizationPipeline = VK_NULL_HANDLE;
+	int materialSize = 0;
+	std::vector<DescriptorData> materials;
+	std::vector<UniformData> materialData;
+	std::map<std::string, HawkEye::HBuffer> materialBuffers;
+	int vertexSize = 1;
+	std::map<int, std::vector<HawkEye::Pipeline::DrawBuffer>> drawBuffers;
+	// TODO: One should be enough.
+	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+	std::map<std::string, HawkEye::HBuffer> uniformBuffers;
+	std::map<std::string, int> uniformTextureBindings;
+	std::map<std::string, HawkEye::HTexture> uniformTextures;
+	DescriptorData descriptorData;
 };
 
 struct HawkEye::Pipeline::Private
 {
-	// TODO: Currently only one layer supported.
+	int samples = 0;
+	PipelineUniforms uniformInfo;
 	std::vector<PipelinePass> passes;
+	std::vector<PipelinePassData> passData;
 	VulkanBackend::BackendData* backendData = nullptr;
-	int dimension;
 	std::unique_ptr<VulkanBackend::SurfaceData> surfaceData = nullptr;
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 	std::vector<VkImageView> swapchainImageViews;
 	VkRenderPass renderPass = VK_NULL_HANDLE;
 	std::vector<VkFramebuffer> framebuffers;
 	VkPipelineCache pipelineCache = VK_NULL_HANDLE;
-	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	std::vector<VkShaderModule> shaderModules;
-	VkPipeline computePipeline = VK_NULL_HANDLE;
-	VkPipeline rasterizationPipeline = VK_NULL_HANDLE;
 	VkQueue graphicsQueue = VK_NULL_HANDLE;
 	VkQueue computeQueue = VK_NULL_HANDLE;
 	VkSemaphore graphicsSemaphore = VK_NULL_HANDLE;
 	VkSemaphore presentSemaphore = VK_NULL_HANDLE;
-	int materialSize = 0;
-	std::vector<MaterialData> materials;
-	std::vector<PipelinePass::UniformData> materialData;
-	std::vector<HBuffer> materialBuffers;
 	std::vector<VkFence> frameFences;
 	VkCommandPool commandPool = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
 	std::map<std::string, HBuffer> uniformBuffers;
 	std::map<std::string, int> uniformTextureBindings;
 	std::map<std::string, HTexture> uniformTextures;
+	DescriptorData descriptorData;
 	std::vector<FrameData> frameData;
-	// TODO: Layers.
-	int vertexSize = 1;
 	uint64_t currentFrame = 0;
-	std::map<int, std::vector<HawkEye::Pipeline::DrawBuffer>> drawBuffers;
 };
 
 void RecordCommands(int c, const VulkanBackend::BackendData& backendData, HawkEye::Pipeline::Private* pipelineData);
