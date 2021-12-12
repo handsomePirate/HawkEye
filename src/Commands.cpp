@@ -2,7 +2,7 @@
 #include "Resources.hpp"
 #include <VulkanBackend/ErrorCheck.hpp>
 
-void RecordCommands(int c, const VulkanBackend::BackendData& backendData, HawkEye::Pipeline::Private* pipelineData)
+void PipelineUtils::RecordCommands(int c, const VulkanBackend::BackendData& backendData, HawkEye::Pipeline::Private* pipelineData)
 {
 	VkCommandBuffer commandBuffer = pipelineData->frameData[c].commandBuffer;
 

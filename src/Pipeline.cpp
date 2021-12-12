@@ -1,5 +1,6 @@
 #include "Pipeline.hpp"
 #include "Resources.hpp"
+#include "Descriptors.hpp"
 #include <VulkanBackend/Logger.hpp>
 #include <VulkanBackend/ErrorCheck.hpp>
 #define CompilerLogger VulkanLogger
@@ -17,145 +18,9 @@ HawkEye::Pipeline::~Pipeline()
 	delete p_;
 }
 
-VkFormat GetAttributeFormat(const PipelinePass::VertexAttribute& vertexAttribute)
-{
-	return (VkFormat)(VK_FORMAT_R32_UINT + (vertexAttribute.byteCount / 4 - 1) * 3 + (int)vertexAttribute.type);
-}
-
 bool HawkEye::Pipeline::Configured() const
 {
 	return p_->backendData != nullptr;
-}
-
-VkDescriptorSetLayout GetDescriptorSetLayout(const VulkanBackend::BackendData& backendData, const std::vector<UniformData>& uniformData)
-{
-	std::vector<VkDescriptorSetLayoutBinding> layoutBindings(uniformData.size());
-	for (int b = 0; b < layoutBindings.size(); ++b)
-	{
-		layoutBindings[b].binding = b;
-		layoutBindings[b].descriptorCount = 1;
-		layoutBindings[b].descriptorType = uniformData[b].type;
-		layoutBindings[b].stageFlags = uniformData[b].visibility;
-	}
-
-	return VulkanBackend::CreateDescriptorSetLayout(backendData, layoutBindings);
-}
-
-std::vector<VkDescriptorPoolSize> FilterDescriptorPoolSizes(const std::vector<VkDescriptorPoolSize>& inPoolSizes)
-{
-	std::vector<VkDescriptorPoolSize> filteredPoolSizes;
-	for (int s = 0; s < inPoolSizes.size(); ++s)
-	{
-		if (inPoolSizes[s].descriptorCount > 0)
-		{
-			filteredPoolSizes.push_back(inPoolSizes[s]);
-		}
-	}
-
-	return filteredPoolSizes;
-}
-
-std::vector<VkDescriptorPoolSize> GetDescriptorPoolSizes(HawkEye::HRendererData rendererData, const std::vector<UniformData>& uniformData,
-	HawkEye::BufferType uniformBufferType, std::map<std::string, HawkEye::HBuffer>& uniformBuffers, void* data = nullptr)
-{
-	std::vector<VkDescriptorPoolSize> poolSizes(2);
-	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-
-	int cumulativeSize = 0;
-	for (int u = 0; u < uniformData.size(); ++u)
-	{
-		if (uniformData[u].type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-		{
-			uniformBuffers[uniformData[u].name] = HawkEye::UploadBuffer(rendererData,
-				data == nullptr ? data : (void*)((int*)data + (cumulativeSize >> 2)),
-				uniformData[u].size, HawkEye::BufferUsage::Uniform, uniformBufferType);
-			++poolSizes[0].descriptorCount;
-		}
-		else if (uniformData[u].type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-		{
-			++poolSizes[1].descriptorCount;
-		}
-		cumulativeSize += uniformData[u].size;
-	}
-
-	return FilterDescriptorPoolSizes(poolSizes);
-}
-
-void UpdateDescriptorSets(HawkEye::HRendererData rendererData, const VulkanBackend::BackendData& backendData,
-	const std::vector<UniformData>& uniformData, const std::vector<VkDescriptorPoolSize>& poolSizes,
-	VkDescriptorPool& descriptorPool, VkDescriptorSet& descriptorSet, VkDescriptorSetLayout descriptorSetLayout,
-	const std::map<std::string, HawkEye::HBuffer>& uniformBuffers, std::map<std::string, int>& uniformTextureBindings,
-	void* data = nullptr)
-{
-	descriptorPool = VulkanBackend::CreateDescriptorPool(backendData, poolSizes, 1);
-	descriptorSet = VulkanBackend::AllocateDescriptorSet(backendData, descriptorPool, descriptorSetLayout);
-
-	int k = 0;
-	int cumulativeSize = 0;
-	while (k < uniformData.size())
-	{
-		if (uniformData[k].type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
-		{
-			if (!data)
-			{
-				uniformTextureBindings[uniformData[k].name] = k;
-			}
-			else
-			{
-				HawkEye::HTexture texture = *(HawkEye::HTexture*)((int*)data + (cumulativeSize >> 2));
-				HawkEye::WaitForUpload(rendererData, texture);
-
-				VkDescriptorImageInfo imageInfo{};
-				imageInfo.imageLayout = texture->imageLayout;
-				imageInfo.imageView = texture->imageView;
-				imageInfo.sampler = texture->sampler;
-
-				VkWriteDescriptorSet descriptorWrite{};
-				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-				descriptorWrite.dstSet = descriptorSet;
-				descriptorWrite.dstBinding = k;
-				descriptorWrite.dstArrayElement = 0;
-				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-				descriptorWrite.descriptorCount = 1;
-				descriptorWrite.pImageInfo = &imageInfo;
-
-				vkUpdateDescriptorSets(backendData.logicalDevice, 1, &descriptorWrite, 0, nullptr);
-				cumulativeSize += uniformData[k].size;
-			}
-			++k;
-			continue;
-		}
-
-		std::vector<VkDescriptorBufferInfo> bufferInfos;
-
-		int u = k;
-		for (; u < uniformData.size() &&
-			uniformData[u].visibility == uniformData[k].visibility &&
-			uniformData[u].type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			++u)
-		{
-			VkDescriptorBufferInfo bufferInfo{};
-			bufferInfo.buffer = uniformBuffers.at(uniformData[u].name)->buffer.buffer;
-			bufferInfo.offset = 0;
-			bufferInfo.range = (VkDeviceSize)uniformData[u].size;
-
-			bufferInfos.push_back(bufferInfo);
-			cumulativeSize += uniformData[u].size;
-		}
-
-		VkWriteDescriptorSet descriptorWrite{};
-		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrite.dstSet = descriptorSet;
-		descriptorWrite.dstBinding = k;
-		descriptorWrite.dstArrayElement = 0;
-		descriptorWrite.descriptorType = uniformData[k].type;
-		descriptorWrite.descriptorCount = (uint32_t)bufferInfos.size();
-		descriptorWrite.pBufferInfo = bufferInfos.data();
-
-		vkUpdateDescriptorSets(backendData.logicalDevice, 1, &descriptorWrite, 0, nullptr);
-		k += (int32_t)bufferInfos.size();
-	}
 }
 
 void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* configFile, int width, int height,
@@ -283,15 +148,15 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 			}
 			p_->passData[p].materialData = passes[p].material;
 
-			p_->passData[p].descriptorSetLayouts.push_back(GetDescriptorSetLayout(backendData, p_->passData[p].materialData));
+			p_->passData[p].descriptorSetLayouts.push_back(DescriptorUtils::GetSetLayout(backendData, p_->passData[p].materialData));
 		}
 		if (!passes[p].uniforms.empty())
 		{
-			passUniformLayouts[p] = GetDescriptorSetLayout(backendData, passes[p].uniforms);
+			passUniformLayouts[p] = DescriptorUtils::GetSetLayout(backendData, passes[p].uniforms);
 
-			auto poolSizes = GetDescriptorPoolSizes(rendererData, passes[p].uniforms, HawkEye::BufferType::Mapped, p_->passData[p].uniformBuffers);
+			auto poolSizes = DescriptorUtils::GetPoolSizes(rendererData, passes[p].uniforms, HawkEye::BufferType::Mapped, p_->passData[p].uniformBuffers);
 
-			UpdateDescriptorSets(rendererData, backendData, passes[p].uniforms, poolSizes, p_->passData[p].descriptorData.descriptorPool,
+			DescriptorUtils::UpdateSets(rendererData, backendData, passes[p].uniforms, poolSizes, p_->passData[p].descriptorData.descriptorPool,
 				p_->passData[p].descriptorData.descriptorSet, passUniformLayouts[p], p_->passData[p].uniformBuffers, p_->passData[p].uniformTextureBindings);
 		}
 	}
@@ -299,11 +164,11 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	VkDescriptorSetLayout commonDescriptorSetLayout = VK_NULL_HANDLE;
 	if (!p_->uniformInfo.uniforms.empty())
 	{
-		commonDescriptorSetLayout = GetDescriptorSetLayout(backendData, p_->uniformInfo.uniforms);
+		commonDescriptorSetLayout = DescriptorUtils::GetSetLayout(backendData, p_->uniformInfo.uniforms);
 
-		auto poolSizes = GetDescriptorPoolSizes(rendererData, p_->uniformInfo.uniforms, HawkEye::BufferType::Mapped, p_->uniformBuffers);
+		auto poolSizes = DescriptorUtils::GetPoolSizes(rendererData, p_->uniformInfo.uniforms, HawkEye::BufferType::Mapped, p_->uniformBuffers);
 
-		UpdateDescriptorSets(rendererData, backendData, p_->uniformInfo.uniforms, poolSizes, p_->descriptorData.descriptorPool,
+		DescriptorUtils::UpdateSets(rendererData, backendData, p_->uniformInfo.uniforms, poolSizes, p_->descriptorData.descriptorPool,
 			p_->descriptorData.descriptorSet, commonDescriptorSetLayout, p_->uniformBuffers, p_->uniformTextureBindings);
 	}
 
@@ -340,7 +205,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 			for (int a = 0; a < passes[p].attributes.size(); ++a)
 			{
 				vertexAttributeDescriptions[a].binding = 0;
-				vertexAttributeDescriptions[a].format = GetAttributeFormat(passes[p].attributes[a]);
+				vertexAttributeDescriptions[a].format = PipelineUtils::GetAttributeFormat(passes[p].attributes[a]);
 				vertexAttributeDescriptions[a].location = a;
 				vertexAttributeDescriptions[a].offset = vertexSize;
 				vertexSize += passes[p].attributes[a].byteCount;
@@ -421,7 +286,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	for (int c = 0; c < p_->frameData.size(); ++c)
 	{
 		p_->frameData[c].commandBuffer = commandBuffers[c];
-		RecordCommands(c, backendData, p_);
+		PipelineUtils::RecordCommands(c, backendData, p_);
 	}
 
 	VulkanBackend::DestroyDescriptorSetLayout(backendData, commonDescriptorSetLayout);
@@ -606,7 +471,7 @@ void HawkEye::Pipeline::DrawFrame()
 	if (p_->frameData[currentImageIndex].dirty)
 	{
 		VulkanBackend::ResetCommandBuffer(p_->frameData[currentImageIndex].commandBuffer);
-		RecordCommands(currentImageIndex, backendData, p_);
+		PipelineUtils::RecordCommands(currentImageIndex, backendData, p_);
 	}
 
 	static VkPipelineStageFlags pipelineStageWait = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -846,16 +711,21 @@ HawkEye::HMaterial HawkEye::Pipeline::CreateMaterialImpl(void* data, int dataSiz
 	int cumulativeSize = 0;
 	int firstIndex = p_->passData[pass].materialBuffers.size();
 
-	auto poolSizes = GetDescriptorPoolSizes((HRendererData)p_->backendData, p_->passData[pass].materialData, BufferType::DeviceLocal,
+	auto poolSizes = DescriptorUtils::GetPoolSizes((HRendererData)p_->backendData, p_->passData[pass].materialData, BufferType::DeviceLocal,
 		p_->passData[pass].materialBuffers, data);
 
 	VkDescriptorPool descriptorPool;
 	VkDescriptorSet descriptorSet;
-	UpdateDescriptorSets((HRendererData)p_->backendData, backendData, p_->passData[pass].materialData, poolSizes,
+	DescriptorUtils::UpdateSets((HRendererData)p_->backendData, backendData, p_->passData[pass].materialData, poolSizes,
 		descriptorPool, descriptorSet, p_->passData[pass].descriptorSetLayouts[0], p_->passData[pass].materialBuffers,
 		/*not used inside*/p_->passData[pass].uniformTextureBindings, data);
 
 	p_->passData[pass].materials.push_back({ descriptorPool, descriptorSet });
 
 	return p_->passData[pass].materials.size() - 1;
+}
+
+VkFormat PipelineUtils::GetAttributeFormat(const PipelinePass::VertexAttribute& vertexAttribute)
+{
+	return (VkFormat)(VK_FORMAT_R32_UINT + (vertexAttribute.byteCount / 4 - 1) * 3 + (int)vertexAttribute.type);
 }
