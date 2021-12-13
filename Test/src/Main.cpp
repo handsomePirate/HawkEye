@@ -10,10 +10,15 @@
 #include <future>
 #include <iostream>
 
-HawkEye::Pipeline renderingPipeline;
+HawkEye::Pipeline renderingPipeline1;
+HawkEye::Pipeline renderingPipeline2;
 const int windowWidth = 720;
 const int windowHeight = 480;
-ControllerModule::Scene::Camera camera(windowWidth / float(windowHeight));
+ControllerModule::Scene::Camera camera1(windowWidth / float(windowHeight));
+ControllerModule::Scene::Camera camera2(windowWidth / float(windowHeight));
+
+EverViewport::Window* testWindow1 = nullptr;
+EverViewport::Window* testWindow2 = nullptr;
 
 // Callbacks.
 
@@ -61,9 +66,9 @@ void PrintWin32(const char* message, Core::LoggerSeverity severity)
 
 void Render()
 {
-	if (renderingPipeline.Configured())
+	if (renderingPipeline1.Configured())
 	{
-		renderingPipeline.DrawFrame();
+		renderingPipeline1.DrawFrame();
 	}
 }
 
@@ -71,19 +76,58 @@ void Resize(int width, int height)
 {
 	if (width != 0 && height != 0)
 	{
-		camera.SetAspect(width / float(height));
-		camera.UpdateViewProjectionMatrices();
+		camera1.SetAspect(width / float(height));
+		camera1.UpdateViewProjectionMatrices();
 	}
-	if (renderingPipeline.Configured())
+	if (renderingPipeline1.Configured())
 	{
-		Eigen::Matrix4f viewProjectionMatrix = camera.GetProjectionMatrix() * camera.GetViewMatrix();
-		renderingPipeline.SetUniform("camera", viewProjectionMatrix, 0);
-		renderingPipeline.Resize(width, height);
+		Eigen::Matrix4f viewProjectionMatrix = camera1.GetProjectionMatrix() * camera1.GetViewMatrix();
+		renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 0);
+		renderingPipeline1.Resize(width, height);
+	}
+}
+
+void Render2()
+{
+	if (renderingPipeline2.Configured())
+	{
+		renderingPipeline2.DrawFrame();
+	}
+}
+
+void Resize2(int width, int height)
+{
+	if (width != 0 && height != 0)
+	{
+		camera2.SetAspect(width / float(height));
+		camera2.UpdateViewProjectionMatrices();
+	}
+	if (renderingPipeline2.Configured())
+	{
+		Eigen::Matrix4f viewProjectionMatrix = camera2.GetProjectionMatrix() * camera2.GetViewMatrix();
+		renderingPipeline2.SetUniform("camera", viewProjectionMatrix, 0);
+		renderingPipeline2.Resize(width, height);
 	}
 }
 
 void HandleInput(float timeDelta)
 {
+	HawkEye::Pipeline* renderingPipeline = &renderingPipeline1;
+	ControllerModule::Scene::Camera* camera = &camera1;
+
+	bool window1Focused = testWindow1->InFocus();
+	bool window2Focused = testWindow2->InFocus();
+
+	if (window2Focused)
+	{
+		renderingPipeline = &renderingPipeline2;
+		camera = &camera2;
+	}
+	else if (!window1Focused)
+	{
+		return;
+	}
+
 	static uint16_t lastMouseX = 0;
 	static uint16_t lastMouseY = 0;
 
@@ -97,22 +141,25 @@ void HandleInput(float timeDelta)
 
 	bool shift = CoreInput.IsKeyPressed(Core::Input::Keys::Shift);
 
-	//const float moveSensitivity = shift ? 120.f : 50.f;
-	const float moveSensitivity = .002f;
-	const float forwardDelta =
-		((forward ? moveSensitivity : -moveSensitivity) +
-			(back ? -moveSensitivity : moveSensitivity))
-		* timeDelta;
-	const float rightDelta =
-		((right ? moveSensitivity : -moveSensitivity) +
-			(left ? -moveSensitivity : moveSensitivity))
-		* timeDelta;
-	const float upDelta =
-		((up ? moveSensitivity : -moveSensitivity) +
-			(down ? -moveSensitivity : moveSensitivity))
-		* timeDelta;
+	if (forward || back || left || right || up || down)
+	{
+		//const float moveSensitivity = shift ? 120.f : 50.f;
+		const float moveSensitivity = .002f;
+		const float forwardDelta =
+			((forward ? moveSensitivity : -moveSensitivity) +
+				(back ? -moveSensitivity : moveSensitivity))
+			* timeDelta;
+		const float rightDelta =
+			((right ? moveSensitivity : -moveSensitivity) +
+				(left ? -moveSensitivity : moveSensitivity))
+			* timeDelta;
+		const float upDelta =
+			((up ? -moveSensitivity : moveSensitivity) +
+				(down ? moveSensitivity : -moveSensitivity))
+			* timeDelta;
 
-	camera.TranslateLocal({ rightDelta, upDelta, forwardDelta });
+		camera->TranslateLocal({ rightDelta, upDelta, forwardDelta });
+	}
 
 	uint16_t mouseX = CoreInput.GetMouseX();
 	uint16_t mouseY = CoreInput.GetMouseY();
@@ -127,16 +174,16 @@ void HandleInput(float timeDelta)
 		const float xMove = mouseSensitivity * deltaX * timeDelta;
 		const float yMove = mouseSensitivity * deltaY * timeDelta;
 
-		camera.Rotate({ 0, 1, 0 }, -xMove);
-		camera.RotateLocal({ 1, 0, 0 }, yMove);
+		camera->Rotate({ 0, 1, 0 }, -xMove);
+		camera->RotateLocal({ 1, 0, 0 }, yMove);
 	}
 
-	camera.UpdateViewProjectionMatrices();
+	camera->UpdateViewProjectionMatrices();
 
-	if (renderingPipeline.Configured())
+	if (renderingPipeline->Configured())
 	{
-		Eigen::Matrix4f viewProjectionMatrix = camera.GetProjectionMatrix() * camera.GetViewMatrix();
-		renderingPipeline.SetUniform("camera", viewProjectionMatrix, 0);
+		Eigen::Matrix4f viewProjectionMatrix = camera->GetProjectionMatrix() * camera->GetViewMatrix();
+		renderingPipeline->SetUniform("camera", viewProjectionMatrix, 0);
 	}
 
 	lastMouseX = mouseX;
@@ -165,12 +212,16 @@ int main(int argc, char* argv[])
 		// Window.
 
 		EverViewport::WindowCallbacks windowCallbacks{ Render, Resize };
-		EverViewport::Window testWindow(50, 50, windowWidth, windowHeight, "test", windowCallbacks);
+		testWindow1 = new EverViewport::Window(50, 50, windowWidth, windowHeight, "test 1", windowCallbacks);
+		EverViewport::WindowCallbacks windowCallbacks2{ Render2, Resize2 };
+		testWindow2 = new EverViewport::Window(50, 50, windowWidth, windowHeight, "test 2", windowCallbacks2);
 
 		// Pipeline.
 
-		renderingPipeline.Configure(rendererData, frontendConfigFile.c_str(), windowWidth, windowHeight,
-			testWindow.GetWindowHandle(), testWindow.GetProgramConnection());
+		renderingPipeline1.Configure(rendererData, frontendConfigFile.c_str(), windowWidth, windowHeight,
+			testWindow1->GetWindowHandle(), testWindow1->GetProgramConnection());
+		renderingPipeline2.Configure(rendererData, frontendConfigFile.c_str(), windowWidth, windowHeight,
+			testWindow2->GetWindowHandle(), testWindow2->GetProgramConnection());
 
 		// Texture (gradient).
 
@@ -257,10 +308,11 @@ int main(int argc, char* argv[])
 			HawkEye::HTexture texture;
 		};
 		TextureMaterial materialData1{ textures[0] };
-		HawkEye::HMaterial material1 = renderingPipeline.CreateMaterial(materialData1, 0);
+		HawkEye::HMaterial material1 = renderingPipeline1.CreateMaterial(materialData1, 0);
+		HawkEye::HMaterial material21 = renderingPipeline2.CreateMaterial(materialData1, 0);
 
 		TextureMaterial materialData2{ myTexture };
-		HawkEye::HMaterial material2 = renderingPipeline.CreateMaterial(materialData2, 0);
+		HawkEye::HMaterial material2 = renderingPipeline1.CreateMaterial(materialData2, 0);
 
 		HawkEye::HBuffer vertexBuffer0;
 		HawkEye::HBuffer vertexBuffer1;
@@ -291,22 +343,27 @@ int main(int argc, char* argv[])
 		drawBuffers[1].material = material2;
 		drawBuffers[1].instanceBuffer = instanceBuffer;
 
-		renderingPipeline.UseBuffers(drawBuffers, drawBufferCount, 0);
+		renderingPipeline1.UseBuffers(drawBuffers, drawBufferCount, 0);
+		renderingPipeline2.UseBuffers(drawBuffers, 1, 0);
 
-		Eigen::Matrix4f viewProjectionMatrix = camera.GetProjectionMatrix() * camera.GetViewMatrix();
-		renderingPipeline.SetUniform("camera", viewProjectionMatrix, 0);
+		Eigen::Matrix4f viewProjectionMatrix = camera1.GetProjectionMatrix() * camera1.GetViewMatrix();
+		Eigen::Matrix4f viewProjectionMatrix2 = camera2.GetProjectionMatrix() * camera2.GetViewMatrix();
+		renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 0);
+		renderingPipeline2.SetUniform("camera", viewProjectionMatrix2, 0);
 
 		// Rendering loop.
 
 		//uint32_t test = 0;
 		float timeDelta = 1;
 		auto before = std::chrono::high_resolution_clock::now();
-		while (!testWindow.ShouldClose())
+		while (!testWindow1->ShouldClose() && !testWindow2->ShouldClose())
 		{
-			testWindow.PollMessages();
+			testWindow1->PollMessages();
 			//renderingPipeline.UseBuffers(&drawBuffers[test], 1);
 			//test = (test + 1) % 2;
-			renderingPipeline.DrawFrame();
+			renderingPipeline1.DrawFrame();
+			testWindow2->PollMessages();
+			renderingPipeline2.DrawFrame();
 
 			auto now = std::chrono::high_resolution_clock::now();
 			timeDelta = std::chrono::duration<float, std::milli>(now - before).count();
@@ -316,7 +373,8 @@ int main(int argc, char* argv[])
 
 		// Releasing of resources.
 
-		renderingPipeline.ReleaseResources();
+		renderingPipeline1.ReleaseResources();
+		renderingPipeline2.ReleaseResources();
 
 		HawkEye::DeleteBuffer(rendererData, vertexBuffer0);
 		HawkEye::DeleteBuffer(rendererData, vertexBuffer1);
@@ -329,9 +387,13 @@ int main(int argc, char* argv[])
 		}
 		HawkEye::DeleteTexture(rendererData, myTexture);
 
-		renderingPipeline.Shutdown();
+		renderingPipeline2.Shutdown();
+		renderingPipeline1.Shutdown();
 
 		HawkEye::Shutdown();
+
+		delete testWindow1;
+		delete testWindow2;
 	}
 	catch (const std::exception& e)
 	{
