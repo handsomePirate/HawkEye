@@ -564,9 +564,9 @@ void HawkEye::Pipeline::Resize(int width, int height)
 		VulkanBackend::DestroyImageView(backendData, p_->swapchainImageViews[i]);
 	}
 
-	for (int p = 0; p < p_->passes.size(); ++p)
+	for (int t = 0; t < p_->targets.size(); ++t)
 	{
-		for (int t = 0; t < p_->targets.size(); ++t)
+		if (p_->targets[t].image.image != VK_NULL_HANDLE)
 		{
 			FramebufferUtils::DestroyTarget(backendData, p_->targets[t]);
 		}
@@ -574,8 +574,8 @@ void HawkEye::Pipeline::Resize(int width, int height)
 
 	if (p_->surfaceData->surface)
 	{
-		VulkanBackend::GetSurfaceCapabilities(backendData, surfaceData);
-		VulkanBackend::GetSurfaceExtent(backendData, surfaceData);
+		//VulkanBackend::GetSurfaceCapabilities(backendData, surfaceData);
+		//VulkanBackend::GetSurfaceExtent(backendData, surfaceData);
 
 		p_->swapchain = VulkanBackend::RecreateSwapchain(*p_->backendData, surfaceData, p_->swapchain);
 
