@@ -900,14 +900,16 @@ HawkEye::HMaterial HawkEye::Pipeline::CreateMaterialImpl(void* data, int dataSiz
 	int cumulativeSize = 0;
 	int firstIndex = (int)p_->passData[pass].materialBuffers.size();
 
+	std::string prepend = "_" + std::to_string(firstIndex) + "-";
+
 	auto poolSizes = DescriptorUtils::GetPoolSizes((HRendererData)p_->backendData, p_->passData[pass].materialData, BufferType::DeviceLocal,
-		p_->passData[pass].materialBuffers, data);
+		p_->passData[pass].materialBuffers, prepend, data);
 
 	VkDescriptorPool descriptorPool;
 	VkDescriptorSet descriptorSet;
 	DescriptorUtils::UpdateSets((HRendererData)p_->backendData, backendData, p_->passData[pass].materialData, poolSizes,
 		descriptorPool, descriptorSet, p_->passData[pass].descriptorSetLayouts[0], p_->passData[pass].materialBuffers,
-		/*not used inside*/p_->passData[pass].uniformTextureBindings, data);
+		/*not used inside*/p_->passData[pass].uniformTextureBindings, prepend, data);
 
 	p_->passData[pass].materials.push_back({ descriptorPool, descriptorSet });
 

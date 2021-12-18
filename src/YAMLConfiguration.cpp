@@ -298,7 +298,7 @@ void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uni
 			{
 				if (!passNode[u]["size"])
 				{
-					CoreLogError(VulkanLogger, "Pipeline uniforms: Missing uniform size - skipping uniform.");
+					CoreLogError(VulkanLogger, "Pipeline uniforms: Missing uniform size - skipping.");
 					continue;
 				}
 				else
@@ -307,9 +307,16 @@ void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uni
 				}
 			}
 
+			std::string name = passNode[u]["name"].as<std::string>();
+
+			if (name[0] == '_')
+			{
+				CoreLogError(VulkanLogger, "Pipeline uniforms: Name may not start with \'_\' - skipping.");
+				continue;
+			}
 			uniformData.push_back(
 				{
-					passNode[u]["name"].as<std::string>(),
+					name,
 					size, type, visibility
 				});
 		}

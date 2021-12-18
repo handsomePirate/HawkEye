@@ -25,8 +25,9 @@ Pipeline:
         # This specifies per model descriptors - will get a transform automatically
         material:
         -
-            name: texture
-            type: texture
+            name: color
+            type: uniform
+            size: 12
         vertex attributes:
             # position
         - vec3

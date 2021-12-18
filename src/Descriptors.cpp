@@ -31,7 +31,7 @@ std::vector<VkDescriptorPoolSize> DescriptorUtils::FilterPoolSizes(const std::ve
 
 std::vector<VkDescriptorPoolSize> DescriptorUtils::GetPoolSizes(HawkEye::HRendererData rendererData,
 	const std::vector<UniformData>& uniformData, HawkEye::BufferType uniformBufferType, std::map<std::string,
-	HawkEye::HBuffer>& uniformBuffers, void* data)
+	HawkEye::HBuffer>& uniformBuffers, const std::string& namePrepend, void* data)
 {
 	std::vector<VkDescriptorPoolSize> poolSizes(2);
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -42,7 +42,7 @@ std::vector<VkDescriptorPoolSize> DescriptorUtils::GetPoolSizes(HawkEye::HRender
 	{
 		if (uniformData[u].type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
 		{
-			uniformBuffers[uniformData[u].name] = HawkEye::UploadBuffer(rendererData,
+			uniformBuffers[namePrepend + uniformData[u].name] = HawkEye::UploadBuffer(rendererData,
 				data == nullptr ? data : (void*)((int*)data + (cumulativeSize >> 2)),
 				uniformData[u].size, HawkEye::BufferUsage::Uniform, uniformBufferType);
 			++poolSizes[0].descriptorCount;
@@ -61,7 +61,7 @@ void DescriptorUtils::UpdateSets(HawkEye::HRendererData rendererData, const Vulk
 	const std::vector<UniformData>& uniformData, const std::vector<VkDescriptorPoolSize>& poolSizes,
 	VkDescriptorPool& descriptorPool, VkDescriptorSet& descriptorSet, VkDescriptorSetLayout descriptorSetLayout,
 	const std::map<std::string, HawkEye::HBuffer>& uniformBuffers, std::map<std::string, int>& uniformTextureBindings,
-	void* data)
+	const std::string& namePrepend, void* data)
 {
 	descriptorPool = VulkanBackend::CreateDescriptorPool(backendData, poolSizes, 1);
 	descriptorSet = VulkanBackend::AllocateDescriptorSet(backendData, descriptorPool, descriptorSetLayout);
@@ -74,7 +74,7 @@ void DescriptorUtils::UpdateSets(HawkEye::HRendererData rendererData, const Vulk
 		{
 			if (!data)
 			{
-				uniformTextureBindings[uniformData[k].name] = k;
+				uniformTextureBindings[namePrepend + uniformData[k].name] = k;
 			}
 			else
 			{
@@ -111,7 +111,7 @@ void DescriptorUtils::UpdateSets(HawkEye::HRendererData rendererData, const Vulk
 			++u)
 		{
 			VkDescriptorBufferInfo bufferInfo{};
-			bufferInfo.buffer = uniformBuffers.at(uniformData[u].name)->buffer.buffer;
+			bufferInfo.buffer = uniformBuffers.at(namePrepend + uniformData[u].name)->buffer.buffer;
 			bufferInfo.offset = 0;
 			bufferInfo.range = (VkDeviceSize)uniformData[u].size;
 

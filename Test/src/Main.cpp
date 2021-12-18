@@ -249,37 +249,37 @@ int main(int argc, char* argv[])
 
 		// Texture (gradient).
 
-		constexpr int width = 4096;
-		constexpr int height = 4096;
-		constexpr int dataSize = width * height * 4;
-		std::vector<unsigned char> image(dataSize);
-		std::vector<unsigned char> image2(dataSize);
-		for (int y = 0; y < height; ++y)
-		{
-			for (int x = 0; x < width; ++x)
-			{
-				int level = (int)std::round(x * 255 / (float)(width - 1));
-				image[(y * width + x) * 4 + 0] = level;
-				image[(y * width + x) * 4 + 1] = 0;
-				image[(y * width + x) * 4 + 2] = 0;
-				image[(y * width + x) * 4 + 3] = 255;
-
-				image2[(y * width + x) * 4 + 0] = 0;
-				image2[(y * width + x) * 4 + 1] = 0;
-				image2[(y * width + x) * 4 + 2] = level;
-				image2[(y * width + x) * 4 + 3] = 255;
-			}
-		}
-
-		std::array<HawkEye::HTexture, 1> textures;
-		for (int t = 0; t < textures.size(); ++t)
-		{
-			textures[t] = HawkEye::UploadTexture(rendererData, image.data(), (int)image.size(), width, height, HawkEye::TextureFormat::RGBA,
-				HawkEye::ColorCompression::SRGB, HawkEye::TextureCompression::None, false);
-		}
-
-		HawkEye::HTexture myTexture = HawkEye::UploadTexture(rendererData, image2.data(), (int)image2.size(), width, height, HawkEye::TextureFormat::RGBA,
-			HawkEye::ColorCompression::SRGB, HawkEye::TextureCompression::None, false);
+		//constexpr int width = 4096;
+		//constexpr int height = 4096;
+		//constexpr int dataSize = width * height * 4;
+		//std::vector<unsigned char> image(dataSize);
+		//std::vector<unsigned char> image2(dataSize);
+		//for (int y = 0; y < height; ++y)
+		//{
+		//	for (int x = 0; x < width; ++x)
+		//	{
+		//		int level = (int)std::round(x * 255 / (float)(width - 1));
+		//		image[(y * width + x) * 4 + 0] = level;
+		//		image[(y * width + x) * 4 + 1] = 0;
+		//		image[(y * width + x) * 4 + 2] = 0;
+		//		image[(y * width + x) * 4 + 3] = 255;
+		//
+		//		image2[(y * width + x) * 4 + 0] = 0;
+		//		image2[(y * width + x) * 4 + 1] = 0;
+		//		image2[(y * width + x) * 4 + 2] = level;
+		//		image2[(y * width + x) * 4 + 3] = 255;
+		//	}
+		//}
+		//
+		//std::array<HawkEye::HTexture, 1> textures;
+		//for (int t = 0; t < textures.size(); ++t)
+		//{
+		//	textures[t] = HawkEye::UploadTexture(rendererData, image.data(), (int)image.size(), width, height, HawkEye::TextureFormat::RGBA,
+		//		HawkEye::ColorCompression::SRGB, HawkEye::TextureCompression::None, false);
+		//}
+		//
+		//HawkEye::HTexture myTexture = HawkEye::UploadTexture(rendererData, image2.data(), (int)image2.size(), width, height, HawkEye::TextureFormat::RGBA,
+		//	HawkEye::ColorCompression::SRGB, HawkEye::TextureCompression::None, false);
 
 		// Vertex and index buffers.
 
@@ -327,17 +327,23 @@ int main(int argc, char* argv[])
 			0.f, 0.f, 0.f, 1.f
 		};
 
-		struct TextureMaterial
+		//struct TextureMaterial
+		//{
+		//	HawkEye::HTexture texture;
+		//};
+		struct ColorMaterial
 		{
-			HawkEye::HTexture texture;
+			float r, g, b;
 		};
-		TextureMaterial materialData1{ textures[0] };
+		//TextureMaterial materialData1{ textures[0] };
+		ColorMaterial materialData1{ 1, 0, 0 };
 		HawkEye::HMaterial material1 = renderingPipeline1.CreateMaterial(materialData1, 1);
 #ifdef SECOND_WINDOW
 		HawkEye::HMaterial material21 = renderingPipeline2.CreateMaterial(materialData1, 1);
 #endif
 
-		TextureMaterial materialData2{ myTexture };
+		//TextureMaterial materialData2{ myTexture };
+		ColorMaterial materialData2{ 0, 0, 1 };
 		HawkEye::HMaterial material2 = renderingPipeline1.CreateMaterial(materialData2, 1);
 
 		HawkEye::HBuffer vertexBuffer0;
@@ -381,7 +387,6 @@ int main(int argc, char* argv[])
 
 		// Rendering loop.
 
-		//uint32_t test = 0;
 		float timeDelta = 1;
 		auto before = std::chrono::high_resolution_clock::now();
 #ifdef SECOND_WINDOW
@@ -391,8 +396,6 @@ int main(int argc, char* argv[])
 #endif
 		{
 			testWindow1->PollMessages();
-			//renderingPipeline.UseBuffers(&drawBuffers[test], 1);
-			//test = (test + 1) % 2;
 			renderingPipeline1.DrawFrame();
 #ifdef SECOND_WINDOW
 			testWindow2->PollMessages();
@@ -417,11 +420,11 @@ int main(int argc, char* argv[])
 		HawkEye::DeleteBuffer(rendererData, indexBuffer);
 		HawkEye::DeleteBuffer(rendererData, instanceBuffer);
 
-		for (int t = 0; t < textures.size(); ++t)
-		{
-			HawkEye::DeleteTexture(rendererData, textures[t]);
-		}
-		HawkEye::DeleteTexture(rendererData, myTexture);
+		//for (int t = 0; t < textures.size(); ++t)
+		//{
+		//	HawkEye::DeleteTexture(rendererData, textures[t]);
+		//}
+		//HawkEye::DeleteTexture(rendererData, myTexture);
 
 #ifdef SECOND_WINDOW
 		renderingPipeline2.Shutdown();
