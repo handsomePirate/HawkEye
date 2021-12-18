@@ -4,7 +4,7 @@
 
 struct HawkEye::HTexture_t
 {
-	VulkanBackend::Image image;
+	VulkanBackend::Image image{};
 	VkImageView imageView = VK_NULL_HANDLE;
 	VkSampler sampler = VK_NULL_HANDLE;
 	VkImageLayout imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;

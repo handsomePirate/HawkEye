@@ -526,6 +526,7 @@ void HawkEye::Pipeline::UseBuffers(DrawBuffer* drawBuffers, int bufferCount, int
 		return;
 	}
 
+	p_->passData[pass].empty = true;
 	p_->passData[pass].drawBuffers.clear();
 	if (drawBuffers && bufferCount > 0)
 	{
@@ -547,6 +548,7 @@ void HawkEye::Pipeline::UseBuffers(DrawBuffer* drawBuffers, int bufferCount, int
 			}
 
 			p_->passData[pass].drawBuffers[drawBuffers[b].material].push_back(drawBuffers[b]);
+			p_->passData[pass].empty = false;
 		}
 	}
 
@@ -758,7 +760,10 @@ void HawkEye::Pipeline::ReleaseResources()
 	// Stop using buffer resources.
 	for (int p = 0; p < p_->passes.size(); ++p)
 	{
-		UseBuffers(nullptr, 0, p);
+		if (p_->passes[p].type == PipelinePass::Type::Rasterized)
+		{
+			UseBuffers(nullptr, 0, p);
+		}
 	}
 
 	// Wait for frames in flight to finish using the resources.

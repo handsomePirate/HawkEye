@@ -21,6 +21,7 @@ struct PipelinePassData
 {
 	int dimension;
 	bool inheritDepth = false;
+	bool empty = true;
 	PipelinePass::Type type = PipelinePass::Type::Undefined;
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 	std::vector<VkShaderModule> shaderModules;

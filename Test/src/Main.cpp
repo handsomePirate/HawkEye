@@ -17,7 +17,7 @@ HawkEye::Pipeline renderingPipeline1;
 ControllerModule::Scene::Camera camera1(windowWidth / float(windowHeight));
 EverViewport::Window* testWindow1 = nullptr;
 
-
+//#define SECOND_WINDOW
 #ifdef SECOND_WINDOW
 HawkEye::Pipeline renderingPipeline2;
 ControllerModule::Scene::Camera camera2(windowWidth / float(windowHeight));
@@ -110,7 +110,7 @@ void Resize2(int width, int height)
 	if (renderingPipeline2.Configured())
 	{
 		Eigen::Matrix4f viewProjectionMatrix = camera2.GetProjectionMatrix() * camera2.GetViewMatrix();
-		renderingPipeline2.SetUniform("camera", viewProjectionMatrix, 0);
+		renderingPipeline2.SetUniform("camera", viewProjectionMatrix, 1);
 		renderingPipeline2.Resize(width, height);
 	}
 }
@@ -120,6 +120,7 @@ void HandleInput(float timeDelta)
 {
 	HawkEye::Pipeline* renderingPipeline = &renderingPipeline1;
 	ControllerModule::Scene::Camera* camera = &camera1;
+	EverViewport::Window* window = testWindow1;
 
 	bool window1Focused = testWindow1->InFocus();
 #ifdef SECOND_WINDOW
@@ -129,12 +130,23 @@ void HandleInput(float timeDelta)
 	{
 		renderingPipeline = &renderingPipeline2;
 		camera = &camera2;
+		window = testWindow2;
 	}
 	else if (!window1Focused)
 	{
 		return;
 	}
 #endif
+
+	static bool lastEsc = false;
+
+	bool nowEsc = CoreInput.IsKeyPressed(Core::Input::Keys::Escape);
+	if (nowEsc && !lastEsc)
+	{
+		window->Close();
+	}
+
+	lastEsc = nowEsc;
 
 	static uint16_t lastMouseX = 0;
 	static uint16_t lastMouseY = 0;
@@ -322,7 +334,7 @@ int main(int argc, char* argv[])
 		TextureMaterial materialData1{ textures[0] };
 		HawkEye::HMaterial material1 = renderingPipeline1.CreateMaterial(materialData1, 1);
 #ifdef SECOND_WINDOW
-		HawkEye::HMaterial material21 = renderingPipeline2.CreateMaterial(materialData1, 0);
+		HawkEye::HMaterial material21 = renderingPipeline2.CreateMaterial(materialData1, 1);
 #endif
 
 		TextureMaterial materialData2{ myTexture };
@@ -362,9 +374,9 @@ int main(int argc, char* argv[])
 		renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 1);
 		
 #ifdef SECOND_WINDOW
-		renderingPipeline2.UseBuffers(drawBuffers, 1, 0);
+		renderingPipeline2.UseBuffers(drawBuffers, 1, 1);
 		Eigen::Matrix4f viewProjectionMatrix2 = camera2.GetProjectionMatrix() * camera2.GetViewMatrix();
-		renderingPipeline2.SetUniform("camera", viewProjectionMatrix2, 0);
+		renderingPipeline2.SetUniform("camera", viewProjectionMatrix2, 1);
 #endif
 
 		// Rendering loop.
