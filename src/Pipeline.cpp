@@ -22,7 +22,7 @@ HawkEye::Pipeline::~Pipeline()
 
 bool HawkEye::Pipeline::Configured() const
 {
-	return p_->backendData != nullptr;
+	return p_->configured;
 }
 
 void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* configFile, int width, int height,
@@ -107,7 +107,6 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		{
 			p_->swapchain = VulkanBackend::CreateSwapchain(backendData, surfaceData,
 				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
-			// TODO: Swapchain images' layouts need to be transitioned manually for compute passes.
 		}
 		else
 		{
@@ -207,6 +206,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 			p_->descriptorData.descriptorSet, commonDescriptorSetLayout, p_->uniformBuffers, p_->uniformTextureBindings);
 	}
 
+	// TODO: Do this only for computed passes.
 	std::vector<UniformData> frameUniforms =
 	{
 		{"swapchain image", 8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT}
@@ -216,27 +216,30 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	poolSize.descriptorCount = 1;
 
-	for (int c = 0; c < p_->frameData.size(); ++c)
+	for (int p = 0; p < p_->passData.size(); ++p)
 	{
-		p_->frameData[c].frameDescriptors.descriptorPool = VulkanBackend::CreateDescriptorPool(backendData, { poolSize }, 1);
-		p_->frameData[c].frameDescriptors.descriptorSet = VulkanBackend::AllocateDescriptorSet(backendData,
-			p_->frameData[c].frameDescriptors.descriptorPool, p_->frameDescriptorLayout);
+		p_->passData[p].frameDescriptors.resize(p_->swapchainImages.size());
+		for (int c = 0; c < p_->frameData.size(); ++c)
+		{
+			p_->passData[p].frameDescriptors[c].descriptorPool = VulkanBackend::CreateDescriptorPool(backendData, { poolSize }, 1);
+			p_->passData[p].frameDescriptors[c].descriptorSet = VulkanBackend::AllocateDescriptorSet(backendData,
+				p_->passData[p].frameDescriptors[c].descriptorPool, p_->frameDescriptorLayout);
 
-		VkDescriptorImageInfo imageInfo{};
-		// TODO: See about the layouts.
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		imageInfo.imageView = p_->swapchainImageViews[c];
+			VkDescriptorImageInfo imageInfo{};
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+			imageInfo.imageView = p_->swapchainImageViews[c];
 
-		VkWriteDescriptorSet descriptorWrite{};
-		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrite.dstSet = p_->frameData[c].frameDescriptors.descriptorSet;
-		descriptorWrite.dstBinding = 0;
-		descriptorWrite.dstArrayElement = 0;
-		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		descriptorWrite.descriptorCount = 1;
-		descriptorWrite.pImageInfo = &imageInfo;
+			VkWriteDescriptorSet descriptorWrite{};
+			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrite.dstSet = p_->passData[p].frameDescriptors[c].descriptorSet;
+			descriptorWrite.dstBinding = 0;
+			descriptorWrite.dstArrayElement = 0;
+			descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+			descriptorWrite.descriptorCount = 1;
+			descriptorWrite.pImageInfo = &imageInfo;
 
-		vkUpdateDescriptorSets(backendData.logicalDevice, 1, &descriptorWrite, 0, nullptr);
+			vkUpdateDescriptorSets(backendData.logicalDevice, 1, &descriptorWrite, 0, nullptr);
+		}
 	}
 
 	for (int p = 0; p < passes.size(); ++p)
@@ -305,7 +308,6 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 
 			VkPipelineVertexInputStateCreateInfo vertexInput{};
 			vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-			// TODO: Split attributes into multiple buffers.
 			vertexInput.vertexBindingDescriptionCount = descriptionsCount;
 			vertexInput.pVertexBindingDescriptions = vertexBindingDescriptions;
 			vertexInput.vertexAttributeDescriptionCount = (uint32_t)vertexAttributeDescriptions.size();
@@ -329,7 +331,6 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 				VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL,
 				VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE,
 				VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
-				// TODO: Make depth inheritable, etc.
 				VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS,
 				VK_SAMPLE_COUNT_1_BIT, dynamicStates, vertexInput, renderPass, pipelineLayout, shaderStages, pipelineCache);
 		}
@@ -375,7 +376,9 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		VulkanBackend::DestroyDescriptorSetLayout(backendData, passUniformLayouts[l]);
 	}
 
-	CoreLogDebug(VulkanLogger, "Pipeline: Configuration successful.");
+	p_->configured = true;
+
+	CoreLogInfo(VulkanLogger, "Pipeline: Configuration successful.");
 }
 
 void HawkEye::Pipeline::Shutdown()
@@ -480,7 +483,10 @@ void HawkEye::Pipeline::Shutdown()
 		VulkanBackend::DestroyDescriptorSetLayout(backendData, p_->frameDescriptorLayout);
 		for (int c = 0; c < p_->frameData.size(); ++c)
 		{
-			VulkanBackend::DestroyDescriptorPool(backendData, p_->frameData[c].frameDescriptors.descriptorPool);
+			for (int p = 0; p < p_->passData.size(); ++p)
+			{
+				VulkanBackend::DestroyDescriptorPool(backendData, p_->passData[p].frameDescriptors[c].descriptorPool);
+			}
 			VulkanBackend::FreeCommandBuffer(backendData, p_->commandPool, p_->frameData[c].commandBuffer);
 		}
 		if (p_->commandPool)
@@ -534,6 +540,7 @@ void HawkEye::Pipeline::DrawFrame()
 	{
 		return;
 	}
+	assert(p_->configured);
 
 	const VulkanBackend::BackendData& backendData = *p_->backendData;
 	VkDevice device = backendData.logicalDevice;
@@ -608,6 +615,8 @@ void HawkEye::Pipeline::Resize(int width, int height)
 		surfaceData.height = height;
 		return;
 	}
+
+	assert(p_->configured);
 
 	const VulkanBackend::BackendData& backendData = *p_->backendData;
 	VulkanBackend::SurfaceData& surfaceData = *p_->surfaceData.get();
@@ -684,24 +693,27 @@ void HawkEye::Pipeline::Resize(int width, int height)
 		p_->framebuffers[f] = framebuffer;
 	}
 
-	for (int c = 0; c < p_->frameData.size(); ++c)
+	for (int p = 0; p < p_->passData.size(); ++p)
 	{
-		VkDescriptorImageInfo imageInfo{};
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		imageInfo.imageView = p_->swapchainImageViews[c];
+		for (int c = 0; c < p_->frameData.size(); ++c)
+		{
+			VkDescriptorImageInfo imageInfo{};
+			imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+			imageInfo.imageView = p_->swapchainImageViews[c];
 
-		VkWriteDescriptorSet descriptorWrite{};
-		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptorWrite.dstSet = p_->frameData[c].frameDescriptors.descriptorSet;
-		descriptorWrite.dstBinding = 0;
-		descriptorWrite.dstArrayElement = 0;
-		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		descriptorWrite.descriptorCount = 1;
-		descriptorWrite.pImageInfo = &imageInfo;
+			VkWriteDescriptorSet descriptorWrite{};
+			descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			descriptorWrite.dstSet = p_->passData[p].frameDescriptors[c].descriptorSet;
+			descriptorWrite.dstBinding = 0;
+			descriptorWrite.dstArrayElement = 0;
+			descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+			descriptorWrite.descriptorCount = 1;
+			descriptorWrite.pImageInfo = &imageInfo;
 
-		vkUpdateDescriptorSets(backendData.logicalDevice, 1, &descriptorWrite, 0, nullptr);
+			vkUpdateDescriptorSets(backendData.logicalDevice, 1, &descriptorWrite, 0, nullptr);
 
-		p_->frameData[c].dirty = true;
+			p_->frameData[c].dirty = true;
+		}
 	}
 }
 
@@ -716,7 +728,6 @@ void HawkEye::Pipeline::Refresh()
 void HawkEye::Pipeline::ReleaseResources()
 {
 	// Stop using buffer resources.
-	// TODO: Do for all passes.
 	for (int p = 0; p < p_->passes.size(); ++p)
 	{
 		UseBuffers(nullptr, 0, p);

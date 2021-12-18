@@ -15,8 +15,6 @@ struct FrameData
 {
 	bool dirty = true;
 	VkCommandBuffer commandBuffer;
-	// TODO: This should be per frame PER PASS also possibly (depending on swapchain).
-	DescriptorData frameDescriptors;
 };
 
 struct PipelinePassData
@@ -34,17 +32,18 @@ struct PipelinePassData
 	std::map<std::string, HawkEye::HBuffer> materialBuffers;
 	int vertexSize = 1;
 	std::map<int, std::vector<HawkEye::Pipeline::DrawBuffer>> drawBuffers;
-	// TODO: One should be enough.
 	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
 	std::map<std::string, HawkEye::HBuffer> uniformBuffers;
 	std::map<std::string, int> uniformTextureBindings;
 	std::map<std::string, HawkEye::HTexture> uniformTextures;
 	DescriptorData descriptorData;
+	std::vector<DescriptorData> frameDescriptors;
 };
 
 struct HawkEye::Pipeline::Private
 {
 	int samples = 0;
+	bool configured = false;
 	bool hasDepthTarget = false;
 	bool containsComputedPass = false;
 	PipelineUniforms uniformInfo;
