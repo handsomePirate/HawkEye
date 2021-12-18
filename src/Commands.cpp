@@ -13,12 +13,23 @@ void CommandUtils::Record(int c, const VulkanBackend::BackendData& backendData, 
 	// TODO: Multi-threaded recording of command buffers.
 	VulkanCheck(vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo));
 
+	bool renderPassOpen = false;
+	bool inComputeMode = false;
+
 	// TODO: Make compatible with any order of rasterized and compute passes.
 	for (int p = 0; p < pipelineData->passData.size(); ++p)
 	{
 		// TODO: Computed passes need the option to inherit depth buffers.
 		if (pipelineData->passData[p].type == PipelinePass::Type::Computed)
 		{
+			if (renderPassOpen)
+			{
+				vkCmdEndRenderPass(commandBuffer);
+				renderPassOpen = false;
+			}
+
+			inComputeMode = true;
+
 			// TODO: Materials could be useful here as well (-> multiple dispatches per pass).
 			VulkanBackend::TransitionImageLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
 				pipelineData->swapchainImages[c], 1, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
@@ -45,15 +56,6 @@ void CommandUtils::Record(int c, const VulkanBackend::BackendData& backendData, 
 
 			// TODO: Works in multiples of 16, make sure that exactly the entire picture is rendered onto the screen.
 			vkCmdDispatch(commandBuffer, (pipelineData->surfaceData->width + 15) / 16, (pipelineData->surfaceData->height + 15) / 16, 1);
-
-			// TODO: Next pass could also be rasterized if the following one is empty.
-			if (p < pipelineData->passData.size() - 1 &&
-				(pipelineData->passData[p + 1].type != PipelinePass::Type::Rasterized || pipelineData->passData[p + 1].empty))
-			{
-				VulkanBackend::TransitionImageLayout(commandBuffer, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-					pipelineData->swapchainImages[c], 1, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-					VK_IMAGE_ASPECT_COLOR_BIT, 0, 0);
-			}
 		}
 		else
 		{
@@ -67,16 +69,21 @@ void CommandUtils::Record(int c, const VulkanBackend::BackendData& backendData, 
 			clearValues[0].color = { 0.f, 0.f, 0.f };
 			clearValues[1].depthStencil = { 1.f, 0 };
 
-			VkRenderPassBeginInfo renderPassBeginInfo{};
-			renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-			renderPassBeginInfo.renderPass = pipelineData->renderPass;
-			renderPassBeginInfo.renderArea.extent.width = pipelineData->surfaceData->width;
-			renderPassBeginInfo.renderArea.extent.height = pipelineData->surfaceData->height;
-			renderPassBeginInfo.clearValueCount = clearValueCount - (pipelineData->hasDepthTarget ? 0 : 1);
-			renderPassBeginInfo.pClearValues = clearValues;
-			renderPassBeginInfo.framebuffer = pipelineData->framebuffers[c];
+			if (!renderPassOpen)
+			{
+				VkRenderPassBeginInfo renderPassBeginInfo{};
+				renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+				renderPassBeginInfo.renderPass = pipelineData->renderPass;
+				renderPassBeginInfo.renderArea.extent.width = pipelineData->surfaceData->width;
+				renderPassBeginInfo.renderArea.extent.height = pipelineData->surfaceData->height;
+				renderPassBeginInfo.clearValueCount = clearValueCount - (pipelineData->hasDepthTarget ? 0 : 1);
+				renderPassBeginInfo.pClearValues = clearValues;
+				renderPassBeginInfo.framebuffer = pipelineData->framebuffers[c];
 
-			vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+				vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+				renderPassOpen = true;
+				inComputeMode = false;
+			}
 
 			// HACK: Without dynamic viewports and other states, the pipeline might need to be recreated.
 			VkViewport viewport;
@@ -152,9 +159,21 @@ void CommandUtils::Record(int c, const VulkanBackend::BackendData& backendData, 
 					}
 				}
 			}
-
-			vkCmdEndRenderPass(commandBuffer);
 		}
+	}
+
+	if (renderPassOpen)
+	{
+		vkCmdEndRenderPass(commandBuffer);
+		renderPassOpen = false;
+	}
+
+	if (inComputeMode)
+	{
+		VulkanBackend::TransitionImageLayout(commandBuffer, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			pipelineData->swapchainImages[c], 1, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			VK_IMAGE_ASPECT_COLOR_BIT, 0, 0);
+		inComputeMode = false;
 	}
 
 	VulkanCheck(vkEndCommandBuffer(commandBuffer));

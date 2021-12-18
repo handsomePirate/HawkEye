@@ -846,6 +846,7 @@ void HawkEye::Pipeline::SetUniform(const std::string& name, HTexture texture, in
 
 void HawkEye::Pipeline::SetUniformImpl(const std::string& name, void* data, int dataSize)
 {
+	// TODO: Doing this - having one uniform for all frames in flight - may result in e.g., screen tearing.
 	auto it = p_->uniformBuffers.find(name);
 	if (it == p_->uniformBuffers.end())
 	{
