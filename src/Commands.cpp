@@ -24,6 +24,7 @@ void CommandUtils::Record(int c, const VulkanBackend::BackendData& backendData, 
 		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineData->passData[0].pipelineLayout, 0, 1,
 			&pipelineData->frameData[c].frameDescriptors.descriptorSet, 0, 0);
 
+		// TODO: Works in multiples of 16, make sure that exactly the entire picture is rendered onto the screen.
 		vkCmdDispatch(commandBuffer, pipelineData->surfaceData->width / 16, pipelineData->surfaceData->height / 16, 1);
 
 		VulkanBackend::TransitionImageLayout(commandBuffer, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,

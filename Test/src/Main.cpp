@@ -320,13 +320,13 @@ int main(int argc, char* argv[])
 			HawkEye::HTexture texture;
 		};
 		TextureMaterial materialData1{ textures[0] };
-		//HawkEye::HMaterial material1 = renderingPipeline1.CreateMaterial(materialData1, 0);
+		HawkEye::HMaterial material1 = renderingPipeline1.CreateMaterial(materialData1, 0);
 #ifdef SECOND_WINDOW
 		HawkEye::HMaterial material21 = renderingPipeline2.CreateMaterial(materialData1, 0);
 #endif
 
 		TextureMaterial materialData2{ myTexture };
-		//HawkEye::HMaterial material2 = renderingPipeline1.CreateMaterial(materialData2, 0);
+		HawkEye::HMaterial material2 = renderingPipeline1.CreateMaterial(materialData2, 0);
 
 		HawkEye::HBuffer vertexBuffer0;
 		HawkEye::HBuffer vertexBuffer1;
@@ -349,15 +349,15 @@ int main(int argc, char* argv[])
 
 		drawBuffers[0].vertexBuffer = vertexBuffer0;
 		drawBuffers[0].indexBuffer = nullptr;
-		//drawBuffers[0].material = material1;
+		drawBuffers[0].material = material1;
 		drawBuffers[0].instanceBuffer = instanceBuffer;
 
 		drawBuffers[1].vertexBuffer = vertexBuffer1;
 		drawBuffers[1].indexBuffer = indexBuffer;
-		//drawBuffers[1].material = material2;
+		drawBuffers[1].material = material2;
 		drawBuffers[1].instanceBuffer = instanceBuffer;
 
-		//renderingPipeline1.UseBuffers(drawBuffers, drawBufferCount, 0);
+		renderingPipeline1.UseBuffers(drawBuffers, drawBufferCount, 0);
 		Eigen::Matrix4f viewProjectionMatrix = camera1.GetProjectionMatrix() * camera1.GetViewMatrix();
 		renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 0);
 		

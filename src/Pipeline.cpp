@@ -211,7 +211,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	{
 		{"swapchain image", 8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT}
 	};
-	VkDescriptorSetLayout frameSetLayout = DescriptorUtils::GetSetLayout(backendData, frameUniforms);
+	p_->frameDescriptorLayout = DescriptorUtils::GetSetLayout(backendData, frameUniforms);
 	VkDescriptorPoolSize poolSize{};
 	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	poolSize.descriptorCount = 1;
@@ -220,7 +220,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	{
 		p_->frameData[c].frameDescriptors.descriptorPool = VulkanBackend::CreateDescriptorPool(backendData, { poolSize }, 1);
 		p_->frameData[c].frameDescriptors.descriptorSet = VulkanBackend::AllocateDescriptorSet(backendData,
-			p_->frameData[c].frameDescriptors.descriptorPool, frameSetLayout);
+			p_->frameData[c].frameDescriptors.descriptorPool, p_->frameDescriptorLayout);
 
 		VkDescriptorImageInfo imageInfo{};
 		// TODO: See about the layouts.
@@ -244,7 +244,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		std::vector<VkDescriptorSetLayout> passSetLayouts = p_->passData[p].descriptorSetLayouts;
 		if (p_->passData[p].type == PipelinePass::Type::Computed)
 		{
-			passSetLayouts.push_back(frameSetLayout);
+			passSetLayouts.push_back(p_->frameDescriptorLayout);
 		}
 		if (commonDescriptorSetLayout != VK_NULL_HANDLE)
 		{
@@ -369,7 +369,6 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		CommandUtils::Record(c, backendData, p_);
 	}
 
-	VulkanBackend::DestroyDescriptorSetLayout(backendData, frameSetLayout);
 	VulkanBackend::DestroyDescriptorSetLayout(backendData, commonDescriptorSetLayout);
 	for (int l = 0; l < passUniformLayouts.size(); ++l)
 	{
@@ -478,6 +477,7 @@ void HawkEye::Pipeline::Shutdown()
 			HawkEye::DeleteBuffer((HawkEye::HRendererData)p_->backendData, uniform.second);
 		}
 
+		VulkanBackend::DestroyDescriptorSetLayout(backendData, p_->frameDescriptorLayout);
 		for (int c = 0; c < p_->frameData.size(); ++c)
 		{
 			VulkanBackend::DestroyDescriptorPool(backendData, p_->frameData[c].frameDescriptors.descriptorPool);
@@ -492,9 +492,9 @@ void HawkEye::Pipeline::Shutdown()
 
 void HawkEye::Pipeline::UseBuffers(DrawBuffer* drawBuffers, int bufferCount, int pass)
 {
-	if (pass >= p_->passes.size() || pass < 0)
+	if (pass >= p_->passes.size() || pass < 0 || p_->passData[pass].type == PipelinePass::Type::Computed)
 	{
-		CoreLogError(VulkanLogger, "Pipeline: Invalid pass.");
+		CoreLogError(VulkanLogger, "Pipeline: Invalid pass for draw buffer usage.");
 		return;
 	}
 
@@ -838,6 +838,12 @@ void HawkEye::Pipeline::SetUniformImpl(const std::string& name, void* data, int 
 
 HawkEye::HMaterial HawkEye::Pipeline::CreateMaterialImpl(void* data, int dataSize, int pass)
 {
+	if (p_->passData[pass].type == PipelinePass::Type::Computed)
+	{
+		CoreLogError(VulkanLogger, "Pipeline: Invalid pass for material creation.");
+		return -1;
+	}
+
 	if (dataSize != p_->passData[pass].materialSize)
 	{
 		CoreLogError(VulkanLogger, "Pipeline: Material size does not match with configuration.");
