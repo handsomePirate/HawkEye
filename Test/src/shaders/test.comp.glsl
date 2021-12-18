@@ -6,5 +6,5 @@ layout(binding = 0, rgba8) uniform writeonly image2D resultImage;
 
 void main()
 {
-	imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(1, 0, 0, 1));
+	imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(gl_GlobalInvocationID.xy, 1) / vec3(gl_NumWorkGroups * gl_WorkGroupSize), 1));
 }
