@@ -86,7 +86,7 @@ void Resize(int width, int height)
 	if (renderingPipeline1.Configured())
 	{
 		Eigen::Matrix4f viewProjectionMatrix = camera1.GetProjectionMatrix() * camera1.GetViewMatrix();
-		renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 0);
+		renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 1);
 		renderingPipeline1.Resize(width, height);
 	}
 }
@@ -191,7 +191,7 @@ void HandleInput(float timeDelta)
 	if (renderingPipeline->Configured())
 	{
 		Eigen::Matrix4f viewProjectionMatrix = camera->GetProjectionMatrix() * camera->GetViewMatrix();
-		renderingPipeline->SetUniform("camera", viewProjectionMatrix, 0);
+		renderingPipeline->SetUniform("camera", viewProjectionMatrix, 1);
 	}
 
 	lastMouseX = mouseX;
@@ -320,13 +320,13 @@ int main(int argc, char* argv[])
 			HawkEye::HTexture texture;
 		};
 		TextureMaterial materialData1{ textures[0] };
-		HawkEye::HMaterial material1 = renderingPipeline1.CreateMaterial(materialData1, 0);
+		HawkEye::HMaterial material1 = renderingPipeline1.CreateMaterial(materialData1, 1);
 #ifdef SECOND_WINDOW
 		HawkEye::HMaterial material21 = renderingPipeline2.CreateMaterial(materialData1, 0);
 #endif
 
 		TextureMaterial materialData2{ myTexture };
-		HawkEye::HMaterial material2 = renderingPipeline1.CreateMaterial(materialData2, 0);
+		HawkEye::HMaterial material2 = renderingPipeline1.CreateMaterial(materialData2, 1);
 
 		HawkEye::HBuffer vertexBuffer0;
 		HawkEye::HBuffer vertexBuffer1;
@@ -357,9 +357,9 @@ int main(int argc, char* argv[])
 		drawBuffers[1].material = material2;
 		drawBuffers[1].instanceBuffer = instanceBuffer;
 
-		renderingPipeline1.UseBuffers(drawBuffers, drawBufferCount, 0);
+		renderingPipeline1.UseBuffers(drawBuffers, drawBufferCount, 1);
 		Eigen::Matrix4f viewProjectionMatrix = camera1.GetProjectionMatrix() * camera1.GetViewMatrix();
-		renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 0);
+		renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 1);
 		
 #ifdef SECOND_WINDOW
 		renderingPipeline2.UseBuffers(drawBuffers, 1, 0);

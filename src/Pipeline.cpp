@@ -137,7 +137,16 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		}
 	}
 
-	VkRenderPass renderPass = VulkanBackend::CreateRenderPass(backendData, surfaceData, p_->hasDepthTarget);
+	// TODO: We need a render pass per continuous set of rasterized passes.
+	VkRenderPass renderPass;
+	if (passes[0].type == PipelinePass::Type::Computed)
+	{
+		renderPass = VulkanBackend::CreateRenderPass(backendData, surfaceData, p_->hasDepthTarget, VK_IMAGE_LAYOUT_GENERAL);
+	}
+	else
+	{
+		renderPass = VulkanBackend::CreateRenderPass(backendData, surfaceData, p_->hasDepthTarget);
+	}
 	p_->renderPass = renderPass;
 
 	for (int v = 0; v < p_->swapchainImageViews.size(); ++v)
