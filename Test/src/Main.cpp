@@ -10,15 +10,19 @@
 #include <future>
 #include <iostream>
 
-HawkEye::Pipeline renderingPipeline1;
-HawkEye::Pipeline renderingPipeline2;
 const int windowWidth = 720;
 const int windowHeight = 480;
-ControllerModule::Scene::Camera camera1(windowWidth / float(windowHeight));
-ControllerModule::Scene::Camera camera2(windowWidth / float(windowHeight));
 
+HawkEye::Pipeline renderingPipeline1;
+ControllerModule::Scene::Camera camera1(windowWidth / float(windowHeight));
 EverViewport::Window* testWindow1 = nullptr;
+
+
+#ifdef SECOND_WINDOW
+HawkEye::Pipeline renderingPipeline2;
+ControllerModule::Scene::Camera camera2(windowWidth / float(windowHeight));
 EverViewport::Window* testWindow2 = nullptr;
+#endif
 
 // Callbacks.
 
@@ -87,6 +91,7 @@ void Resize(int width, int height)
 	}
 }
 
+#ifdef SECOND_WINDOW
 void Render2()
 {
 	if (renderingPipeline2.Configured())
@@ -109,6 +114,7 @@ void Resize2(int width, int height)
 		renderingPipeline2.Resize(width, height);
 	}
 }
+#endif
 
 void HandleInput(float timeDelta)
 {
@@ -116,6 +122,7 @@ void HandleInput(float timeDelta)
 	ControllerModule::Scene::Camera* camera = &camera1;
 
 	bool window1Focused = testWindow1->InFocus();
+#ifdef SECOND_WINDOW
 	bool window2Focused = testWindow2->InFocus();
 
 	if (window2Focused)
@@ -127,6 +134,7 @@ void HandleInput(float timeDelta)
 	{
 		return;
 	}
+#endif
 
 	static uint16_t lastMouseX = 0;
 	static uint16_t lastMouseY = 0;
@@ -213,15 +221,19 @@ int main(int argc, char* argv[])
 
 		EverViewport::WindowCallbacks windowCallbacks{ Render, Resize };
 		testWindow1 = new EverViewport::Window(50, 50, windowWidth, windowHeight, "test 1", windowCallbacks);
+#ifdef SECOND_WINDOW
 		EverViewport::WindowCallbacks windowCallbacks2{ Render2, Resize2 };
 		testWindow2 = new EverViewport::Window(50, 50, windowWidth, windowHeight, "test 2", windowCallbacks2);
+#endif
 
 		// Pipeline.
 
 		renderingPipeline1.Configure(rendererData, frontendConfigFile.c_str(), windowWidth, windowHeight,
 			testWindow1->GetWindowHandle(), testWindow1->GetProgramConnection());
+#ifdef SECOND_WINDOW
 		renderingPipeline2.Configure(rendererData, frontendConfigFile.c_str(), windowWidth, windowHeight,
 			testWindow2->GetWindowHandle(), testWindow2->GetProgramConnection());
+#endif
 
 		// Texture (gradient).
 
@@ -308,11 +320,13 @@ int main(int argc, char* argv[])
 			HawkEye::HTexture texture;
 		};
 		TextureMaterial materialData1{ textures[0] };
-		HawkEye::HMaterial material1 = renderingPipeline1.CreateMaterial(materialData1, 0);
+		//HawkEye::HMaterial material1 = renderingPipeline1.CreateMaterial(materialData1, 0);
+#ifdef SECOND_WINDOW
 		HawkEye::HMaterial material21 = renderingPipeline2.CreateMaterial(materialData1, 0);
+#endif
 
 		TextureMaterial materialData2{ myTexture };
-		HawkEye::HMaterial material2 = renderingPipeline1.CreateMaterial(materialData2, 0);
+		//HawkEye::HMaterial material2 = renderingPipeline1.CreateMaterial(materialData2, 0);
 
 		HawkEye::HBuffer vertexBuffer0;
 		HawkEye::HBuffer vertexBuffer1;
@@ -335,35 +349,43 @@ int main(int argc, char* argv[])
 
 		drawBuffers[0].vertexBuffer = vertexBuffer0;
 		drawBuffers[0].indexBuffer = nullptr;
-		drawBuffers[0].material = material1;
+		//drawBuffers[0].material = material1;
 		drawBuffers[0].instanceBuffer = instanceBuffer;
 
 		drawBuffers[1].vertexBuffer = vertexBuffer1;
 		drawBuffers[1].indexBuffer = indexBuffer;
-		drawBuffers[1].material = material2;
+		//drawBuffers[1].material = material2;
 		drawBuffers[1].instanceBuffer = instanceBuffer;
 
-		renderingPipeline1.UseBuffers(drawBuffers, drawBufferCount, 0);
-		renderingPipeline2.UseBuffers(drawBuffers, 1, 0);
-
+		//renderingPipeline1.UseBuffers(drawBuffers, drawBufferCount, 0);
 		Eigen::Matrix4f viewProjectionMatrix = camera1.GetProjectionMatrix() * camera1.GetViewMatrix();
-		Eigen::Matrix4f viewProjectionMatrix2 = camera2.GetProjectionMatrix() * camera2.GetViewMatrix();
 		renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 0);
+		
+#ifdef SECOND_WINDOW
+		renderingPipeline2.UseBuffers(drawBuffers, 1, 0);
+		Eigen::Matrix4f viewProjectionMatrix2 = camera2.GetProjectionMatrix() * camera2.GetViewMatrix();
 		renderingPipeline2.SetUniform("camera", viewProjectionMatrix2, 0);
+#endif
 
 		// Rendering loop.
 
 		//uint32_t test = 0;
 		float timeDelta = 1;
 		auto before = std::chrono::high_resolution_clock::now();
+#ifdef SECOND_WINDOW
 		while (!testWindow1->ShouldClose() && !testWindow2->ShouldClose())
+#else
+		while (!testWindow1->ShouldClose())
+#endif
 		{
 			testWindow1->PollMessages();
 			//renderingPipeline.UseBuffers(&drawBuffers[test], 1);
 			//test = (test + 1) % 2;
 			renderingPipeline1.DrawFrame();
+#ifdef SECOND_WINDOW
 			testWindow2->PollMessages();
 			renderingPipeline2.DrawFrame();
+#endif
 
 			auto now = std::chrono::high_resolution_clock::now();
 			timeDelta = std::chrono::duration<float, std::milli>(now - before).count();
@@ -374,7 +396,9 @@ int main(int argc, char* argv[])
 		// Releasing of resources.
 
 		renderingPipeline1.ReleaseResources();
+#ifdef SECOND_WINDOW
 		renderingPipeline2.ReleaseResources();
+#endif
 
 		HawkEye::DeleteBuffer(rendererData, vertexBuffer0);
 		HawkEye::DeleteBuffer(rendererData, vertexBuffer1);
@@ -387,13 +411,17 @@ int main(int argc, char* argv[])
 		}
 		HawkEye::DeleteTexture(rendererData, myTexture);
 
+#ifdef SECOND_WINDOW
 		renderingPipeline2.Shutdown();
+#endif
 		renderingPipeline1.Shutdown();
 
 		HawkEye::Shutdown();
 
 		delete testWindow1;
+#ifdef SECOND_WINDOW
 		delete testWindow2;
+#endif
 	}
 	catch (const std::exception& e)
 	{

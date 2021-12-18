@@ -15,12 +15,15 @@ struct FrameData
 {
 	bool dirty = true;
 	VkCommandBuffer commandBuffer;
+	// TODO: This should be per frame PER PASS also possibly (depending on swapchain).
+	DescriptorData frameDescriptors;
 };
 
 struct PipelinePassData
 {
 	int dimension;
 	bool inheritDepth = false;
+	PipelinePass::Type type = PipelinePass::Type::Undefined;
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 	std::vector<VkShaderModule> shaderModules;
 	VkPipeline computePipeline = VK_NULL_HANDLE;
@@ -43,6 +46,7 @@ struct HawkEye::Pipeline::Private
 {
 	int samples = 0;
 	bool hasDepthTarget = false;
+	bool containsComputedPass = false;
 	PipelineUniforms uniformInfo;
 	std::vector<PipelineTarget> pipelineTargets;
 	std::vector<Target> targets;
@@ -51,6 +55,7 @@ struct HawkEye::Pipeline::Private
 	VulkanBackend::BackendData* backendData = nullptr;
 	std::unique_ptr<VulkanBackend::SurfaceData> surfaceData = nullptr;
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+	std::vector<VkImage> swapchainImages;
 	std::vector<VkImageView> swapchainImageViews;
 	VkRenderPass renderPass = VK_NULL_HANDLE;
 	std::vector<VkFramebuffer> framebuffers;

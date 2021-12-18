@@ -77,6 +77,17 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	surfaceData.height = height;
 	VkDevice device = backendData.logicalDevice;
 
+	p_->passData.resize(passes.size());
+	
+	for (int p = 0; p < passes.size(); ++p)
+	{
+		if (passes[p].type == PipelinePass::Type::Computed)
+		{
+			p_->containsComputedPass = true;
+		}
+		p_->passData[p].type = passes[p].type;
+	}
+
 	if (windowHandle)
 	{
 		VulkanBackend::CreateSurface(backendData, surfaceData, windowHandle, windowConnection);
@@ -92,24 +103,30 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		VulkanBackend::SelectPresentQueue(backendData, surfaceData);
 		VulkanBackend::SelectPresentComputeQueue(backendData, surfaceData);
 
-		p_->swapchain = VulkanBackend::CreateSwapchain(backendData, surfaceData);
+		if (p_->containsComputedPass)
+		{
+			p_->swapchain = VulkanBackend::CreateSwapchain(backendData, surfaceData,
+				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+			// TODO: Swapchain images' layouts need to be transitioned manually for compute passes.
+		}
+		else
+		{
+			p_->swapchain = VulkanBackend::CreateSwapchain(backendData, surfaceData);
+		}
 
-		std::vector<VkImage> swapchainImages;
-		VulkanBackend::GetSwapchainImages(backendData, p_->swapchain, swapchainImages);
+		VulkanBackend::GetSwapchainImages(backendData, p_->swapchain, p_->swapchainImages);
 
-		p_->swapchainImageViews.resize(swapchainImages.size());
+		p_->swapchainImageViews.resize(p_->swapchainImages.size());
 		VkImageSubresourceRange subresourceRange{};
 		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		subresourceRange.levelCount = 1;
 		subresourceRange.layerCount = 1;
 		for (int i = 0; i < p_->swapchainImageViews.size(); ++i)
 		{
-			p_->swapchainImageViews[i] = VulkanBackend::CreateImageView2D(backendData, swapchainImages[i],
+			p_->swapchainImageViews[i] = VulkanBackend::CreateImageView2D(backendData, p_->swapchainImages[i],
 				surfaceData.surfaceFormat.format, subresourceRange);
 		}
 	}
-
-	p_->passData.resize(passes.size());
 
 	p_->targets.resize(p_->pipelineTargets.size());
 	for (int t = 0; t < p_->pipelineTargets.size(); ++t)
@@ -190,9 +207,45 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 			p_->descriptorData.descriptorSet, commonDescriptorSetLayout, p_->uniformBuffers, p_->uniformTextureBindings);
 	}
 
+	std::vector<UniformData> frameUniforms =
+	{
+		{"swapchain image", 8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT}
+	};
+	VkDescriptorSetLayout frameSetLayout = DescriptorUtils::GetSetLayout(backendData, frameUniforms);
+	VkDescriptorPoolSize poolSize{};
+	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	poolSize.descriptorCount = 1;
+
+	for (int c = 0; c < p_->frameData.size(); ++c)
+	{
+		p_->frameData[c].frameDescriptors.descriptorPool = VulkanBackend::CreateDescriptorPool(backendData, { poolSize }, 1);
+		p_->frameData[c].frameDescriptors.descriptorSet = VulkanBackend::AllocateDescriptorSet(backendData,
+			p_->frameData[c].frameDescriptors.descriptorPool, frameSetLayout);
+
+		VkDescriptorImageInfo imageInfo{};
+		// TODO: See about the layouts.
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		imageInfo.imageView = p_->swapchainImageViews[c];
+
+		VkWriteDescriptorSet descriptorWrite{};
+		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrite.dstSet = p_->frameData[c].frameDescriptors.descriptorSet;
+		descriptorWrite.dstBinding = 0;
+		descriptorWrite.dstArrayElement = 0;
+		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		descriptorWrite.descriptorCount = 1;
+		descriptorWrite.pImageInfo = &imageInfo;
+
+		vkUpdateDescriptorSets(backendData.logicalDevice, 1, &descriptorWrite, 0, nullptr);
+	}
+
 	for (int p = 0; p < passes.size(); ++p)
 	{
 		std::vector<VkDescriptorSetLayout> passSetLayouts = p_->passData[p].descriptorSetLayouts;
+		if (p_->passData[p].type == PipelinePass::Type::Computed)
+		{
+			passSetLayouts.push_back(frameSetLayout);
+		}
 		if (commonDescriptorSetLayout != VK_NULL_HANDLE)
 		{
 			passSetLayouts.push_back(commonDescriptorSetLayout);
@@ -282,7 +335,15 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		}
 		else
 		{
-			// TODO: Compute version.
+			VkPipelineShaderStageCreateInfo shaderStage{};
+			shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+			shaderStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+			shaderStage.pName = "main";
+			shaderStage.module = VulkanShaderCompiler::Compile(device, passes[p].shaders[0].second.c_str());
+			p_->passData[p].shaderModules.push_back(shaderStage.module);
+
+			p_->passData[p].computePipeline = VulkanBackend::CreateComputePipeline(backendData,
+				pipelineLayout, shaderStage, pipelineCache);
 		}
 	}
 
@@ -308,6 +369,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		CommandUtils::Record(c, backendData, p_);
 	}
 
+	VulkanBackend::DestroyDescriptorSetLayout(backendData, frameSetLayout);
 	VulkanBackend::DestroyDescriptorSetLayout(backendData, commonDescriptorSetLayout);
 	for (int l = 0; l < passUniformLayouts.size(); ++l)
 	{
@@ -418,6 +480,7 @@ void HawkEye::Pipeline::Shutdown()
 
 		for (int c = 0; c < p_->frameData.size(); ++c)
 		{
+			VulkanBackend::DestroyDescriptorPool(backendData, p_->frameData[c].frameDescriptors.descriptorPool);
 			VulkanBackend::FreeCommandBuffer(backendData, p_->commandPool, p_->frameData[c].commandBuffer);
 		}
 		if (p_->commandPool)
@@ -494,6 +557,7 @@ void HawkEye::Pipeline::DrawFrame()
 	if (p_->frameData[currentImageIndex].dirty)
 	{
 		VulkanBackend::ResetCommandBuffer(p_->frameData[currentImageIndex].commandBuffer);
+
 		CommandUtils::Record(currentImageIndex, backendData, p_);
 	}
 
@@ -574,13 +638,21 @@ void HawkEye::Pipeline::Resize(int width, int height)
 
 	if (p_->surfaceData->surface)
 	{
-		//VulkanBackend::GetSurfaceCapabilities(backendData, surfaceData);
-		//VulkanBackend::GetSurfaceExtent(backendData, surfaceData);
+		VulkanBackend::GetSurfaceCapabilities(backendData, surfaceData);
+		VulkanBackend::GetSurfaceExtent(backendData, surfaceData);
 
-		p_->swapchain = VulkanBackend::RecreateSwapchain(*p_->backendData, surfaceData, p_->swapchain);
+		if (p_->containsComputedPass)
+		{
+			p_->swapchain = VulkanBackend::RecreateSwapchain(*p_->backendData, surfaceData, p_->swapchain,
+				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+		}
+		else
+		{
+			p_->swapchain = VulkanBackend::RecreateSwapchain(*p_->backendData, surfaceData, p_->swapchain);
+		}
 
-		std::vector<VkImage> swapchainImages;
-		VulkanBackend::GetSwapchainImages(backendData, p_->swapchain, swapchainImages);
+		p_->swapchainImages.clear();
+		VulkanBackend::GetSwapchainImages(backendData, p_->swapchain, p_->swapchainImages);
 
 		VkImageSubresourceRange subresourceRange{};
 		subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -588,7 +660,7 @@ void HawkEye::Pipeline::Resize(int width, int height)
 		subresourceRange.layerCount = 1;
 		for (int i = 0; i < p_->swapchainImageViews.size(); ++i)
 		{
-			p_->swapchainImageViews[i] = VulkanBackend::CreateImageView2D(backendData, swapchainImages[i],
+			p_->swapchainImageViews[i] = VulkanBackend::CreateImageView2D(backendData, p_->swapchainImages[i],
 				surfaceData.surfaceFormat.format, subresourceRange);
 		}
 	}
@@ -614,6 +686,21 @@ void HawkEye::Pipeline::Resize(int width, int height)
 
 	for (int c = 0; c < p_->frameData.size(); ++c)
 	{
+		VkDescriptorImageInfo imageInfo{};
+		imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		imageInfo.imageView = p_->swapchainImageViews[c];
+
+		VkWriteDescriptorSet descriptorWrite{};
+		descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrite.dstSet = p_->frameData[c].frameDescriptors.descriptorSet;
+		descriptorWrite.dstBinding = 0;
+		descriptorWrite.dstArrayElement = 0;
+		descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		descriptorWrite.descriptorCount = 1;
+		descriptorWrite.pImageInfo = &imageInfo;
+
+		vkUpdateDescriptorSets(backendData.logicalDevice, 1, &descriptorWrite, 0, nullptr);
+
 		p_->frameData[c].dirty = true;
 	}
 }

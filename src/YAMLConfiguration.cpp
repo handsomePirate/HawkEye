@@ -53,17 +53,35 @@ PipelinePass ConfigureLayer(const YAML::Node& passNode)
 
 	if (passNode["shaders"])
 	{
-		if (passNode["shaders"]["vertex"])
+		if (pass.type == PipelinePass::Type::Rasterized)
 		{
-			pass.shaders.emplace_back(PipelinePass::Shader::Vertex, passNode["shaders"]["vertex"].as<std::string>());
+			// TODO: Make sure there is two shaders - one vertex and one fragment.
+			if (passNode["shaders"]["vertex"])
+			{
+				pass.shaders.emplace_back(PipelinePass::Shader::Vertex, passNode["shaders"]["vertex"].as<std::string>());
+			}
+			else if (passNode["shaders"]["fragment"])
+			{
+				pass.shaders.emplace_back(PipelinePass::Shader::Fragment, passNode["shaders"]["fragment"].as<std::string>());
+			}
+			else
+			{
+				CoreLogError(VulkanLogger,
+					"Pipeline pass: A rasterized pass should have a vertex and a fragment shader, compute shaders are ignored.", type);
+			}
 		}
-		if (passNode["shaders"]["fragment"])
+		else
 		{
-			pass.shaders.emplace_back(PipelinePass::Shader::Fragment, passNode["shaders"]["fragment"].as<std::string>());
-		}
-		if (passNode["shaders"]["compute"])
-		{
-			pass.shaders.emplace_back(PipelinePass::Shader::Compute, passNode["shaders"]["compute"].as<std::string>());
+			// TODO: Make sure there is only one shader.
+			if (passNode["shaders"]["compute"])
+			{
+				pass.shaders.emplace_back(PipelinePass::Shader::Compute, passNode["shaders"]["compute"].as<std::string>());
+			}
+			else
+			{
+				CoreLogError(VulkanLogger,
+					"Pipeline pass: A computed pass should have a compute shader, other shader types ignored.", type);
+			}
 		}
 	}
 
@@ -119,8 +137,11 @@ PipelinePass ConfigureLayer(const YAML::Node& passNode)
 	}
 	else
 	{
-		CoreLogWarn(VulkanLogger, "Pipeline pass: Vertex attributes not defined, vec3 assumed (position).");
-		pass.attributes.push_back({ 12, PipelinePass::VertexAttribute::Type::Float });
+		if (pass.type == PipelinePass::Type::Rasterized)
+		{
+			CoreLogWarn(VulkanLogger, "Pipeline pass: Vertex attributes not defined, vec3 assumed (position).");
+			pass.attributes.push_back({ 12, PipelinePass::VertexAttribute::Type::Float });
+		}
 	}
 
 	ConfigureUniforms(passNode["material"], pass.material);
