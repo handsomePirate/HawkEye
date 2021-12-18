@@ -10,8 +10,23 @@ Pipeline:
     # - sample
     passes:
       -
-        type: computed
+        type: rasterized
         dim: 3
         shaders:
-            compute: ../../src/shaders/test.comp.glsl
+            vertex: ../../src/shaders/test.vert.glsl
+            fragment: ../../src/shaders/test.frag.glsl
         uniforms:
+        # This specifies per model descriptors - will get a transform automatically
+        material:
+          -
+            name: texture
+            type: texture
+        vertex attributes:
+            # position
+          - vec3
+            # normal
+          - vec3
+            # color
+        # - vec3
+            # uv
+          - vec2

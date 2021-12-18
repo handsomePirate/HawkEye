@@ -60,14 +60,17 @@ PipelinePass ConfigureLayer(const YAML::Node& passNode)
 			{
 				pass.shaders.emplace_back(PipelinePass::Shader::Vertex, passNode["shaders"]["vertex"].as<std::string>());
 			}
-			else if (passNode["shaders"]["fragment"])
+			else
+			{
+				CoreLogError(VulkanLogger, "Pipeline pass: Vertex shader missing in a rasterized pass.");
+			}
+			if (passNode["shaders"]["fragment"])
 			{
 				pass.shaders.emplace_back(PipelinePass::Shader::Fragment, passNode["shaders"]["fragment"].as<std::string>());
 			}
 			else
 			{
-				CoreLogError(VulkanLogger,
-					"Pipeline pass: A rasterized pass should have a vertex and a fragment shader, compute shaders are ignored.", type);
+				CoreLogError(VulkanLogger, "Pipeline pass: Fragment shader missing in a rasterized pass.");
 			}
 		}
 		else
@@ -80,7 +83,7 @@ PipelinePass ConfigureLayer(const YAML::Node& passNode)
 			else
 			{
 				CoreLogError(VulkanLogger,
-					"Pipeline pass: A computed pass should have a compute shader, other shader types ignored.", type);
+					"Pipeline pass: A computed pass should have a compute shader, other shader types ignored.");
 			}
 		}
 	}

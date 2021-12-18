@@ -69,7 +69,7 @@ struct HawkEye::Pipeline::Private
 	std::map<std::string, int> uniformTextureBindings;
 	std::map<std::string, HTexture> uniformTextures;
 	DescriptorData descriptorData;
-	VkDescriptorSetLayout frameDescriptorLayout;
+	VkDescriptorSetLayout frameDescriptorLayout = VK_NULL_HANDLE;
 	std::vector<FrameData> frameData;
 	uint64_t currentFrame = 0;
 };
