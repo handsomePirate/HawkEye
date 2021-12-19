@@ -16,6 +16,9 @@ void CommandUtils::Record(int c, const VulkanBackend::BackendData& backendData, 
 	bool renderPassOpen = false;
 	bool inComputeMode = false;
 
+	VkImage currentTarget;
+	int currentPhaseIndex = -1;
+
 	// TODO: Make compatible with any order of rasterized and compute passes.
 	for (int p = 0; p < pipelineData->passData.size(); ++p)
 	{
@@ -28,11 +31,28 @@ void CommandUtils::Record(int c, const VulkanBackend::BackendData& backendData, 
 				renderPassOpen = false;
 			}
 
+			if (inComputeMode)
+			{
+				VulkanBackend::TransitionImageLayout(commandBuffer, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+					currentTarget, 1, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+					VK_IMAGE_ASPECT_COLOR_BIT, 0, 0);
+			}
+
 			inComputeMode = true;
+
+			++currentPhaseIndex;
+			if (currentPhaseIndex < pipelineData->phases.size() - 1)
+			{
+				currentTarget = pipelineData->phases[currentPhaseIndex].colorTarget.image.image;
+			}
+			else
+			{
+				currentTarget = pipelineData->swapchainImages[c];
+			}
 
 			// TODO: Materials could be useful here as well (-> multiple dispatches per pass).
 			VulkanBackend::TransitionImageLayout(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
-				pipelineData->swapchainImages[c], 1, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+				currentTarget, 1, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
 				VK_IMAGE_ASPECT_COLOR_BIT, 0, 0);
 
 			vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineData->passData[p].computePipeline);
@@ -73,12 +93,12 @@ void CommandUtils::Record(int c, const VulkanBackend::BackendData& backendData, 
 			{
 				VkRenderPassBeginInfo renderPassBeginInfo{};
 				renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-				renderPassBeginInfo.renderPass = pipelineData->renderPass;
+				renderPassBeginInfo.renderPass = pipelineData->phases[currentPhaseIndex].renderPass;
 				renderPassBeginInfo.renderArea.extent.width = pipelineData->surfaceData->width;
 				renderPassBeginInfo.renderArea.extent.height = pipelineData->surfaceData->height;
 				renderPassBeginInfo.clearValueCount = clearValueCount - (pipelineData->hasDepthTarget ? 0 : 1);
 				renderPassBeginInfo.pClearValues = clearValues;
-				renderPassBeginInfo.framebuffer = pipelineData->framebuffers[c];
+				renderPassBeginInfo.framebuffer = pipelineData->phases[currentPhaseIndex].framebuffers[c];
 
 				vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 				renderPassOpen = true;
@@ -171,7 +191,7 @@ void CommandUtils::Record(int c, const VulkanBackend::BackendData& backendData, 
 	if (inComputeMode)
 	{
 		VulkanBackend::TransitionImageLayout(commandBuffer, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-			pipelineData->swapchainImages[c], 1, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+			currentTarget, 1, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 			VK_IMAGE_ASPECT_COLOR_BIT, 0, 0);
 		inComputeMode = false;
 	}

@@ -35,3 +35,8 @@ Pipeline:
         # - vec3
             # uv
         - vec2
+      -
+        type: computed
+        dim: 2
+        shaders:
+            compute: ../../src/shaders/blur.comp.glsl

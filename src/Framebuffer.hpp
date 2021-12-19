@@ -10,6 +10,9 @@ struct Target
 
 namespace FramebufferUtils
 {
+	Target CreateColorTarget(const VulkanBackend::BackendData& backendData,
+		const VulkanBackend::SurfaceData& surfaceData, int width, int height, bool retargetSource = false);
+
 	Target CreateDepthTarget(const VulkanBackend::BackendData& backendData,
 		const VulkanBackend::SurfaceData& surfaceData, int width, int height);
 

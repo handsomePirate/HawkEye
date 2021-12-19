@@ -17,11 +17,28 @@ struct FrameData
 	VkCommandBuffer commandBuffer;
 };
 
+enum class PhaseType
+{
+	UP,
+	UA,
+	GA,
+	GP
+};
+
+struct PhaseData
+{
+	PhaseType type;
+	VkRenderPass renderPass;
+	std::vector<VkFramebuffer> framebuffers;
+	Target colorTarget;
+};
+
 struct PipelinePassData
 {
 	int dimension;
 	bool inheritDepth = false;
 	bool empty = true;
+	int colorTarget;
 	PipelinePass::Type type = PipelinePass::Type::Undefined;
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
 	std::vector<VkShaderModule> shaderModules;
@@ -39,6 +56,7 @@ struct PipelinePassData
 	std::map<std::string, HawkEye::HTexture> uniformTextures;
 	DescriptorData descriptorData;
 	std::vector<DescriptorData> frameDescriptors;
+	VkDescriptorSetLayout frameDescriptorLayout = VK_NULL_HANDLE;
 };
 
 struct HawkEye::Pipeline::Private
@@ -48,6 +66,8 @@ struct HawkEye::Pipeline::Private
 	bool hasDepthTarget = false;
 	bool containsComputedPass = false;
 	PipelineUniforms uniformInfo;
+	std::vector<PhaseData> phases;
+	VkSampler targetSampler = VK_NULL_HANDLE;
 	std::vector<PipelineTarget> pipelineTargets;
 	std::vector<Target> targets;
 	std::vector<PipelinePass> passes;
@@ -57,8 +77,10 @@ struct HawkEye::Pipeline::Private
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 	std::vector<VkImage> swapchainImages;
 	std::vector<VkImageView> swapchainImageViews;
-	VkRenderPass renderPass = VK_NULL_HANDLE;
-	std::vector<VkFramebuffer> framebuffers;
+	VkRenderPass renderPassUP = VK_NULL_HANDLE;
+	VkRenderPass renderPassUA = VK_NULL_HANDLE;
+	VkRenderPass renderPassGA = VK_NULL_HANDLE;
+	VkRenderPass renderPassGP = VK_NULL_HANDLE;
 	VkPipelineCache pipelineCache = VK_NULL_HANDLE;
 	VkQueue graphicsQueue = VK_NULL_HANDLE;
 	VkQueue computeQueue = VK_NULL_HANDLE;
@@ -70,7 +92,6 @@ struct HawkEye::Pipeline::Private
 	std::map<std::string, int> uniformTextureBindings;
 	std::map<std::string, HTexture> uniformTextures;
 	DescriptorData descriptorData;
-	VkDescriptorSetLayout frameDescriptorLayout = VK_NULL_HANDLE;
 	std::vector<FrameData> frameData;
 	uint64_t currentFrame = 0;
 };

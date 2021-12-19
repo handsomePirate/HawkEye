@@ -79,14 +79,21 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 
 	p_->passData.resize(passes.size());
 	
+	int retargetChainLength = 0;
 	for (int p = 0; p < passes.size(); ++p)
 	{
 		if (passes[p].type == PipelinePass::Type::Computed)
 		{
 			p_->containsComputedPass = true;
+			if (p > 0)
+			{
+				++retargetChainLength;
+			}
 		}
 		p_->passData[p].type = passes[p].type;
+		p_->passData[p].colorTarget = retargetChainLength;
 	}
+	++retargetChainLength;
 
 	if (windowHandle)
 	{
@@ -127,6 +134,20 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		}
 	}
 
+	p_->phases.resize(retargetChainLength);
+	for (int t = 0; t < p_->phases.size() - 1; ++t)
+	{
+		p_->phases[t].colorTarget = FramebufferUtils::CreateColorTarget(backendData, surfaceData, width, height, true);
+	}
+
+	if (p_->phases.size() > 1)
+	{
+		p_->targetSampler = VulkanBackend::CreateImageSampler(backendData, VK_FILTER_LINEAR, VK_FILTER_LINEAR,
+			VK_BORDER_COLOR_INT_TRANSPARENT_BLACK, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			VK_SAMPLER_ADDRESS_MODE_REPEAT, 0.f, 1);
+	}
+
+	// TODO: Remove color target from these.
 	p_->targets.resize(p_->pipelineTargets.size());
 	for (int t = 0; t < p_->pipelineTargets.size(); ++t)
 	{
@@ -137,30 +158,58 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		}
 	}
 
-	// TODO: We need a render pass per continuous set of rasterized passes.
-	VkRenderPass renderPass;
-	if (passes[0].type == PipelinePass::Type::Computed)
-	{
-		renderPass = VulkanBackend::CreateRenderPass(backendData, surfaceData, p_->hasDepthTarget, VK_IMAGE_LAYOUT_GENERAL);
-	}
-	else
-	{
-		renderPass = VulkanBackend::CreateRenderPass(backendData, surfaceData, p_->hasDepthTarget);
-	}
-	p_->renderPass = renderPass;
+	// TODO: 2^2 render pass possibilities - create only the ones needed.
+	p_->renderPassUP = VulkanBackend::CreateRenderPass(backendData, surfaceData, p_->hasDepthTarget);
+	p_->renderPassUA = VulkanBackend::CreateRenderPass(backendData, surfaceData, p_->hasDepthTarget,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	p_->renderPassGA = VulkanBackend::CreateRenderPass(backendData, surfaceData, p_->hasDepthTarget,
+		VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	p_->renderPassGP = VulkanBackend::CreateRenderPass(backendData, surfaceData, p_->hasDepthTarget,
+		VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-	for (int v = 0; v < p_->swapchainImageViews.size(); ++v)
+	for (int t = 0; t < p_->phases.size(); ++t)
 	{
-		std::vector<VkImageView> attachments =
+		VkRenderPass renderPass;
+		if (p_->phases.size() == 1 && !p_->containsComputedPass)
 		{
-			p_->swapchainImageViews[v]
-		};
-		if (p_->hasDepthTarget)
-		{
-			attachments.push_back(p_->targets[(int)PipelineTarget::Depth].imageView);
+			renderPass = p_->renderPassUP;
+			p_->phases[t].type = PhaseType::UP;
 		}
-		VkFramebuffer framebuffer = VulkanBackend::CreateFramebuffer(backendData, width, height, renderPass, attachments);
-		p_->framebuffers.push_back(framebuffer);
+		else if (t == 0 && p_->passData[0].type == PipelinePass::Type::Rasterized)
+		{
+			renderPass = p_->renderPassUA;
+			p_->phases[t].type = PhaseType::UA;
+		}
+		else if (t == p_->phases.size() - 1)
+		{
+			renderPass = p_->renderPassGP;
+			p_->phases[t].type = PhaseType::GP;
+		}
+		else
+		{
+			renderPass = p_->renderPassGA;
+			p_->phases[t].type = PhaseType::GA;
+		}
+		p_->phases[t].renderPass = renderPass;
+		p_->phases[t].framebuffers.resize(p_->swapchainImageViews.size());
+		for (int v = 0; v < p_->swapchainImageViews.size(); ++v)
+		{
+			std::vector<VkImageView> attachments;
+			if (t == p_->phases.size() - 1)
+			{
+				attachments.push_back(p_->swapchainImageViews[v]);
+			}
+			else
+			{
+				attachments.push_back(p_->phases[t].colorTarget.imageView);
+			}
+			if (p_->hasDepthTarget)
+			{
+				attachments.push_back(p_->targets[(int)PipelineTarget::Depth].imageView);
+			}
+			
+			p_->phases[t].framebuffers[v] = VulkanBackend::CreateFramebuffer(backendData, width, height, renderPass, attachments);
+		}
 	}
 
 	VkPipelineCache pipelineCache = VulkanBackend::CreatePipelineCache(backendData);
@@ -215,33 +264,48 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 			p_->descriptorData.descriptorSet, commonDescriptorSetLayout, p_->uniformBuffers, p_->uniformTextureBindings);
 	}
 
-	// TODO: Do this only for computed passes.
-	std::vector<UniformData> frameUniforms =
-	{
-		{"swapchain image", 8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT}
-	};
-	if (p_->containsComputedPass)
-	{
-		p_->frameDescriptorLayout = DescriptorUtils::GetSetLayout(backendData, frameUniforms);
-	}
-	VkDescriptorPoolSize poolSize{};
-	poolSize.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-	poolSize.descriptorCount = 1;
-
 	for (int p = 0; p < p_->passData.size(); ++p)
 	{
 		if (p_->passData[p].type == PipelinePass::Type::Computed)
 		{
+			std::vector<UniformData> frameUniforms =
+			{
+				{"target image", 8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT}
+			};
+
+			if (p > 0 && (p_->phases[p_->passData[p].colorTarget].type == PhaseType::GA ||
+				p_->phases[p_->passData[p].colorTarget].type == PhaseType::GP))
+			{
+				frameUniforms.push_back({ "source image", 8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_COMPUTE_BIT });
+			}
+
+			std::vector<VkDescriptorPoolSize> poolSizes(frameUniforms.size());
+			poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+			poolSizes[0].descriptorCount = 1;
+			if (poolSizes.size() > 1)
+			{
+				poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				poolSizes[1].descriptorCount = 1;
+			}
+
 			p_->passData[p].frameDescriptors.resize(p_->swapchainImages.size());
+			p_->passData[p].frameDescriptorLayout = DescriptorUtils::GetSetLayout(backendData, frameUniforms);
 			for (int c = 0; c < p_->frameData.size(); ++c)
 			{
-				p_->passData[p].frameDescriptors[c].descriptorPool = VulkanBackend::CreateDescriptorPool(backendData, { poolSize }, 1);
+				p_->passData[p].frameDescriptors[c].descriptorPool = VulkanBackend::CreateDescriptorPool(backendData, poolSizes, 1);
 				p_->passData[p].frameDescriptors[c].descriptorSet = VulkanBackend::AllocateDescriptorSet(backendData,
-					p_->passData[p].frameDescriptors[c].descriptorPool, p_->frameDescriptorLayout);
+					p_->passData[p].frameDescriptors[c].descriptorPool, p_->passData[p].frameDescriptorLayout);
 
 				VkDescriptorImageInfo imageInfo{};
 				imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-				imageInfo.imageView = p_->swapchainImageViews[c];
+				if (p_->passData[p].colorTarget >= p_->phases.size() - 1)
+				{
+					imageInfo.imageView = p_->swapchainImageViews[c];
+				}
+				else
+				{
+					imageInfo.imageView = p_->phases[p_->passData[p].colorTarget].colorTarget.imageView;
+				}
 
 				VkWriteDescriptorSet descriptorWrite{};
 				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -251,8 +315,21 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 				descriptorWrite.descriptorCount = 1;
 				descriptorWrite.pImageInfo = &imageInfo;
-
 				vkUpdateDescriptorSets(backendData.logicalDevice, 1, &descriptorWrite, 0, nullptr);
+
+				if (p > 0 && (p_->phases[p_->passData[p].colorTarget].type == PhaseType::GA ||
+					p_->phases[p_->passData[p].colorTarget].type == PhaseType::GP))
+				{
+					imageInfo = {};
+					imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+					imageInfo.imageView = p_->phases[p_->passData[p].colorTarget - 1].colorTarget.imageView;
+					imageInfo.sampler = p_->targetSampler;
+
+					descriptorWrite.dstBinding = 1;
+					descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+					descriptorWrite.pImageInfo = &imageInfo;
+					vkUpdateDescriptorSets(backendData.logicalDevice, 1, &descriptorWrite, 0, nullptr);
+				}
 			}
 		}
 	}
@@ -262,7 +339,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		std::vector<VkDescriptorSetLayout> passSetLayouts = p_->passData[p].descriptorSetLayouts;
 		if (p_->passData[p].type == PipelinePass::Type::Computed)
 		{
-			passSetLayouts.push_back(p_->frameDescriptorLayout);
+			passSetLayouts.push_back(p_->passData[p].frameDescriptorLayout);
 		}
 		if (commonDescriptorSetLayout != VK_NULL_HANDLE)
 		{
@@ -347,7 +424,8 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 				VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE,
 				VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
 				VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS,
-				VK_SAMPLE_COUNT_1_BIT, dynamicStates, vertexInput, renderPass, pipelineLayout, shaderStages, pipelineCache);
+				VK_SAMPLE_COUNT_1_BIT, dynamicStates, vertexInput, p_->phases[p_->passData[p].colorTarget].renderPass,
+				pipelineLayout, shaderStages, pipelineCache);
 		}
 		else
 		{
@@ -431,12 +509,21 @@ void HawkEye::Pipeline::Shutdown()
 			VulkanBackend::DestroyPipelineCache(backendData, p_->pipelineCache);
 		}
 
-		for (int i = 0; i < p_->swapchainImageViews.size(); ++i)
+		for (int t = 0; t < p_->phases.size(); ++t)
 		{
-			VulkanBackend::DestroyFramebuffer(backendData, p_->framebuffers[i]);
+			for (int f = 0; f < p_->phases[t].framebuffers.size(); ++f)
+			{
+				VulkanBackend::DestroyFramebuffer(backendData, p_->phases[t].framebuffers[f]);
+			}
+			FramebufferUtils::DestroyTarget(backendData, p_->phases[t].colorTarget);
 		}
-		p_->framebuffers.clear();
-		VulkanBackend::DestroyRenderPass(backendData, p_->renderPass);
+		p_->phases.clear();
+		VulkanBackend::DestroyImageSampler(backendData, p_->targetSampler);
+
+		VulkanBackend::DestroyRenderPass(backendData, p_->renderPassUP);
+		VulkanBackend::DestroyRenderPass(backendData, p_->renderPassUA);
+		VulkanBackend::DestroyRenderPass(backendData, p_->renderPassGA);
+		VulkanBackend::DestroyRenderPass(backendData, p_->renderPassGP);
 		if (p_->swapchain)
 		{
 			for (int i = 0; i < p_->swapchainImageViews.size(); ++i)
@@ -479,6 +566,10 @@ void HawkEye::Pipeline::Shutdown()
 			{
 				VulkanBackend::DestroyDescriptorPool(backendData, p_->passData[p].materials[m].descriptorPool);
 			}
+			if (p_->passData[p].frameDescriptorLayout != VK_NULL_HANDLE)
+			{
+				VulkanBackend::DestroyDescriptorSetLayout(backendData, p_->passData[p].frameDescriptorLayout);
+			}
 			VulkanBackend::DestroyDescriptorPool(backendData, p_->passData[p].descriptorData.descriptorPool);
 			for (auto& buffer : p_->passData[p].materialBuffers)
 			{
@@ -493,11 +584,6 @@ void HawkEye::Pipeline::Shutdown()
 		for (auto& uniform : p_->uniformBuffers)
 		{
 			HawkEye::DeleteBuffer((HawkEye::HRendererData)p_->backendData, uniform.second);
-		}
-
-		if (p_->frameDescriptorLayout != VK_NULL_HANDLE)
-		{
-			VulkanBackend::DestroyDescriptorSetLayout(backendData, p_->frameDescriptorLayout);
 		}
 		
 		for (int p = 0; p < p_->passData.size(); ++p)
@@ -651,9 +737,12 @@ void HawkEye::Pipeline::Resize(int width, int height)
 
 	vkDeviceWaitIdle(device);
 
-	for (int i = 0; i < p_->swapchainImageViews.size(); ++i)
+	for (int t = 0; t < p_->phases.size(); ++t)
 	{
-		VulkanBackend::DestroyFramebuffer(backendData, p_->framebuffers[i]);
+		for (int f = 0; f < p_->phases[t].framebuffers.size(); ++f)
+		{
+			VulkanBackend::DestroyFramebuffer(backendData, p_->phases[t].framebuffers[f]);
+		}
 	}
 
 	for (int i = 0; i < p_->swapchainImageViews.size(); ++i)
@@ -661,6 +750,10 @@ void HawkEye::Pipeline::Resize(int width, int height)
 		VulkanBackend::DestroyImageView(backendData, p_->swapchainImageViews[i]);
 	}
 
+	for (int t = 0; t < p_->phases.size(); ++t)
+	{
+		FramebufferUtils::DestroyTarget(backendData, p_->phases[t].colorTarget);
+	}
 	for (int t = 0; t < p_->targets.size(); ++t)
 	{
 		if (p_->targets[t].image.image != VK_NULL_HANDLE)
@@ -698,23 +791,34 @@ void HawkEye::Pipeline::Resize(int width, int height)
 		}
 	}
 
+	for (int t = 0; t < p_->phases.size() - 1; ++t)
+	{
+		p_->phases[t].colorTarget = FramebufferUtils::CreateColorTarget(backendData, surfaceData, width, height, true);
+	}
 	if (p_->hasDepthTarget == true)
 	{
 		p_->targets[(int)PipelineTarget::Depth] = FramebufferUtils::CreateDepthTarget(backendData, surfaceData, width, height);
 	}
 
-	for (int f = 0; f < p_->framebuffers.size(); ++f)
+	for (int t = 0; t < p_->phases.size(); ++t)
 	{
-		std::vector<VkImageView> attachments =
+		for (int v = 0; v < p_->swapchainImageViews.size(); ++v)
 		{
-			p_->swapchainImageViews[f]
-		};
-		if (p_->hasDepthTarget)
-		{
-			attachments.push_back(p_->targets[(int)PipelineTarget::Depth].imageView);
+			std::vector<VkImageView> attachments;
+			if (t == p_->phases.size() - 1)
+			{
+				attachments.push_back(p_->swapchainImageViews[v]);
+			}
+			else
+			{
+				attachments.push_back(p_->phases[t].colorTarget.imageView);
+			}
+			if (p_->hasDepthTarget)
+			{
+				attachments.push_back(p_->targets[(int)PipelineTarget::Depth].imageView);
+			}
+			p_->phases[t].framebuffers[v] = VulkanBackend::CreateFramebuffer(backendData, width, height, p_->phases[t].renderPass, attachments);
 		}
-		VkFramebuffer framebuffer = VulkanBackend::CreateFramebuffer(backendData, width, height, p_->renderPass, attachments);
-		p_->framebuffers[f] = framebuffer;
 	}
 
 	for (int p = 0; p < p_->passData.size(); ++p)
@@ -725,7 +829,14 @@ void HawkEye::Pipeline::Resize(int width, int height)
 			{
 				VkDescriptorImageInfo imageInfo{};
 				imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-				imageInfo.imageView = p_->swapchainImageViews[c];
+				if (p_->passData[p].colorTarget >= p_->phases.size() - 1)
+				{
+					imageInfo.imageView = p_->swapchainImageViews[c];
+				}
+				else
+				{
+					imageInfo.imageView = p_->phases[p_->passData[p].colorTarget].colorTarget.imageView;
+				}
 
 				VkWriteDescriptorSet descriptorWrite{};
 				descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -735,8 +846,21 @@ void HawkEye::Pipeline::Resize(int width, int height)
 				descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 				descriptorWrite.descriptorCount = 1;
 				descriptorWrite.pImageInfo = &imageInfo;
-
 				vkUpdateDescriptorSets(backendData.logicalDevice, 1, &descriptorWrite, 0, nullptr);
+
+				if (p > 0 && (p_->phases[p_->passData[p].colorTarget].type == PhaseType::GA ||
+					p_->phases[p_->passData[p].colorTarget].type == PhaseType::GP))
+				{
+					imageInfo = {};
+					imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+					imageInfo.imageView = p_->phases[p_->passData[p].colorTarget - 1].colorTarget.imageView;
+					imageInfo.sampler = p_->targetSampler;
+
+					descriptorWrite.dstBinding = 1;
+					descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+					descriptorWrite.pImageInfo = &imageInfo;
+					vkUpdateDescriptorSets(backendData.logicalDevice, 1, &descriptorWrite, 0, nullptr);
+				}
 			}
 		}
 	}
