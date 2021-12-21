@@ -86,7 +86,7 @@ void Resize(int width, int height)
 	if (renderingPipeline1.Configured())
 	{
 		Eigen::Matrix4f viewProjectionMatrix = camera1.GetProjectionMatrix() * camera1.GetViewMatrix();
-		//renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 1);
+		renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 1);
 		renderingPipeline1.Resize(width, height);
 	}
 }
@@ -204,7 +204,7 @@ void HandleInput(float timeDelta)
 	if (renderingPipeline->Configured())
 	{
 		Eigen::Matrix4f viewProjectionMatrix = camera->GetProjectionMatrix() * camera->GetViewMatrix();
-		//renderingPipeline->SetUniform("camera", viewProjectionMatrix, 1);
+		renderingPipeline->SetUniform("camera", viewProjectionMatrix, 1);
 	}
 
 	lastMouseX = mouseX;
@@ -378,7 +378,7 @@ int main(int argc, char* argv[])
 
 		renderingPipeline1.UseBuffers(drawBuffers, drawBufferCount, 1);
 		Eigen::Matrix4f viewProjectionMatrix = camera1.GetProjectionMatrix() * camera1.GetViewMatrix();
-		//renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 1);
+		renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 1);
 		
 #ifdef SECOND_WINDOW
 		renderingPipeline2.UseBuffers(drawBuffers, 1, 1);

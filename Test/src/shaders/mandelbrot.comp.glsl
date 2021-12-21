@@ -9,7 +9,7 @@ layout(set = 1, binding = 0) uniform Transform
 	mat4 matrix;
 } transform;
 
-const int maxIteration = 1000;
+const int maxIteration = 100;
 
 void main()
 {
