@@ -190,9 +190,10 @@ void HandleInput(float timeDelta)
 	{
 		const int deltaX = int(lastMouseX) - int(mouseX);
 		const int deltaY = int(lastMouseY) - int(mouseY);
+		static int maxD = 0;
 
-		const float xMove = mouseSensitivity * deltaX * timeDelta;
-		const float yMove = mouseSensitivity * deltaY * timeDelta;
+		const float xMove = mouseSensitivity * deltaX;
+		const float yMove = mouseSensitivity * deltaY;
 
 		camera->Rotate({ 0, 1, 0 }, -xMove);
 		camera->RotateLocal({ 1, 0, 0 }, yMove);

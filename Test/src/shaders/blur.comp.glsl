@@ -19,8 +19,7 @@ void main()
 	{
 		for (int y = -blurBound; y <= blurBound; ++y)
 		{
-			vec2 uv = (vec3(gl_GlobalInvocationID).xy + vec2(x, y)) / vec3(gl_NumWorkGroups * gl_WorkGroupSize).xy;
-			vec3 pixColor = texture(sourceImage, uv).rgb;
+			vec3 pixColor = texelFetch(sourceImage, ivec2(gl_GlobalInvocationID.xy) + ivec2(x, y), 0).rgb;
 			outColor += pixColor;
 			weight += 1;
 		}
