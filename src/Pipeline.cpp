@@ -143,8 +143,8 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	if (p_->phases.size() > 1)
 	{
 		p_->targetSampler = VulkanBackend::CreateImageSampler(backendData, VK_FILTER_LINEAR, VK_FILTER_LINEAR,
-			VK_BORDER_COLOR_INT_TRANSPARENT_BLACK, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT,
-			VK_SAMPLER_ADDRESS_MODE_REPEAT, 0.f, 1);
+			VK_BORDER_COLOR_INT_TRANSPARENT_BLACK, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0.f, 1);
 	}
 
 	// TODO: Remove color target from these.

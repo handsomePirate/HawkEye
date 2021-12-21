@@ -12,31 +12,41 @@ Pipeline:
         type: computed
         dim: 3
         shaders:
-            compute: ../../src/shaders/test.comp.glsl
+            compute: ../../src/shaders/mandelbrot.comp.glsl
         uniforms:
-      -
-        type: rasterized
-        dim: 3
-        shaders:
-            vertex: ../../src/shaders/test.vert.glsl
-            fragment: ../../src/shaders/test.frag.glsl
-        uniforms:
-        material:
-        -
-            name: color
-            type: uniform
-            size: 12
-        vertex attributes:
-            # position
-        - vec3
-            # normal
-        - vec3
-            # color
-        # - vec3
-            # uv
-        - vec2
+#      -
+#        type: rasterized
+#        dim: 3
+#        shaders:
+#            vertex: ../../src/shaders/test.vert.glsl
+#            fragment: ../../src/shaders/test.frag.glsl
+#        uniforms:
+#        material:
+#        -
+#            name: color
+#            type: uniform
+#            size: 12
+#        vertex attributes:
+#            # position
+#        - vec3
+#            # normal
+#        - vec3
+#            # color
+#        # - vec3
+#            # uv
+#        - vec2
+#      -
+#        type: computed
+#        dim: 2
+#        shaders:
+#            compute: ../../src/shaders/blur.comp.glsl
       -
         type: computed
         dim: 2
         shaders:
-            compute: ../../src/shaders/blur.comp.glsl
+            compute: ../../src/shaders/edge.comp.glsl
+      -
+        type: computed
+        dim: 2
+        shaders:
+            compute: ../../src/shaders/inverse.comp.glsl

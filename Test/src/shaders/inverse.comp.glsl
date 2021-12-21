@@ -12,18 +12,7 @@ layout(set = 1, binding = 0) uniform Transform
 
 void main()
 {
-	vec3 outColor = vec3(0);
-	int weight = 0;
-	const int blurBound = 3;
-	for (int x = -blurBound; x <= blurBound; ++x)
-	{
-		for (int y = -blurBound; y <= blurBound; ++y)
-		{
-			vec3 pixColor = texelFetch(sourceImage, ivec2(gl_GlobalInvocationID.xy) + ivec2(x, y), 0).rgb;
-			outColor += pixColor;
-			weight += 1;
-		}
-	}
-	vec4 resColor = vec4(outColor / float(weight), 1);
+	vec3 pixColor = texelFetch(sourceImage, ivec2(gl_GlobalInvocationID.xy), 0).rgb;
+	vec4 resColor = vec4(vec3(1) - pixColor, 1);
 	imageStore(resultImage, ivec2(gl_GlobalInvocationID.xy), resColor);
 }
