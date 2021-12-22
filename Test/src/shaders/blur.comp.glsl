@@ -1,5 +1,6 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
+#pragma optionNV(unroll all)
 
 layout(local_size_x = 16, local_size_y = 16) in;
 layout(binding = 0, rgba8) uniform writeonly image2D resultImage;
@@ -14,7 +15,7 @@ void main()
 {
 	vec3 outColor = vec3(0);
 	int weight = 0;
-	const int blurBound = 3;
+	const int blurBound = 32;
 	for (int x = -blurBound; x <= blurBound; ++x)
 	{
 		for (int y = -blurBound; y <= blurBound; ++y)
