@@ -989,6 +989,12 @@ void HawkEye::Pipeline::SetUniformImpl(const std::string& name, void* data, int 
 
 void HawkEye::Pipeline::SetUniformImpl(const std::string& name, void* data, int dataSize, int pass)
 {
+	if (p_->passData.size() <= pass)
+	{
+		CoreLogError(VulkanLogger, "Pipeline: Pass not present.");
+		return;
+	}
+
 	auto it = p_->passData[pass].uniformBuffers.find(name);
 	if (it == p_->passData[pass].uniformBuffers.end())
 	{
@@ -1007,6 +1013,12 @@ void HawkEye::Pipeline::SetUniformImpl(const std::string& name, void* data, int 
 
 HawkEye::HMaterial HawkEye::Pipeline::CreateMaterialImpl(void* data, int dataSize, int pass)
 {
+	if (p_->passData.size() <= pass)
+	{
+		CoreLogError(VulkanLogger, "Pipeline: Pass not present.");
+		return -1;
+	}
+
 	if (p_->passData[pass].type == PipelinePass::Type::Computed)
 	{
 		CoreLogError(VulkanLogger, "Pipeline: Invalid pass for material creation.");
