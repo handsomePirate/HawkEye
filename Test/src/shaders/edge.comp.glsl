@@ -1,5 +1,6 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
+#pragma optionNV(unroll all)
 
 layout(local_size_x = 16, local_size_y = 16) in;
 layout(binding = 0, rgba8) uniform writeonly image2D resultImage;
@@ -28,8 +29,10 @@ void main()
 	vec3 original = texelFetch(sourceImage, ivec2(gl_GlobalInvocationID.xy), 0).rgb;
     
     mat3 R, G, B;
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++) {
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
             vec3 s  = texelFetch(sourceImage, ivec2(gl_GlobalInvocationID.xy) + ivec2(i - 1,j - 1), 0 ).rgb;
             R[i][j] = s.r;
             G[i][j] = s.g;
