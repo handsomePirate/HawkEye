@@ -55,6 +55,7 @@ struct PipelinePassData
 	std::map<std::string, int> uniformTextureBindings;
 	std::map<std::string, HawkEye::HTexture> uniformTextures;
 	DescriptorData descriptorData;
+	std::vector<HawkEye::HBuffer> frameDecriptorBuffers;
 	std::vector<DescriptorData> frameDescriptors;
 	VkDescriptorSetLayout frameDescriptorLayout = VK_NULL_HANDLE;
 };

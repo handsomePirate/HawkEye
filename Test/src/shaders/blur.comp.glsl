@@ -3,8 +3,8 @@
 #pragma optionNV(unroll all)
 
 layout(local_size_x = 16, local_size_y = 16) in;
-layout(binding = 0, rgba8) uniform writeonly image2D resultImage;
-layout(set = 0, binding = 1) uniform sampler2D sourceImage;
+layout(binding = 1, rgba8) uniform writeonly image2D resultImage;
+layout(set = 0, binding = 2) uniform sampler2D sourceImage;
 
 layout(set = 1, binding = 0) uniform Transform
 {
@@ -15,7 +15,7 @@ void main()
 {
 	vec3 outColor = vec3(0);
 	int weight = 0;
-	const int blurBound = 32;
+	const int blurBound = 5;
 	for (int x = -blurBound; x <= blurBound; ++x)
 	{
 		for (int y = -blurBound; y <= blurBound; ++y)
