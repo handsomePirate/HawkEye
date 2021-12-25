@@ -218,7 +218,6 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 
 	p_->frameData.resize(p_->swapchainImageViews.size());
 
-	std::vector<VkDescriptorSetLayout> passUniformLayouts(passes.size());
 	for (int p = 0; p < passes.size(); ++p)
 	{
 		p_->passData[p].inheritDepth = passes[p].inheritDepth;
@@ -245,12 +244,15 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		}
 		if (!passes[p].uniforms.empty())
 		{
-			passUniformLayouts[p] = DescriptorUtils::GetSetLayout(backendData, passes[p].uniforms);
+			VkDescriptorSetLayout descriptorSetLayout = DescriptorUtils::GetSetLayout(backendData, passes[p].uniforms);
+			p_->passData[p].passUniformLayouts.push_back(descriptorSetLayout);
 
 			auto poolSizes = DescriptorUtils::GetPoolSizes(rendererData, passes[p].uniforms, HawkEye::BufferType::Mapped, p_->passData[p].uniformBuffers);
 
+			// TODO: Materials should not be storage buffers.
 			DescriptorUtils::UpdateSets(rendererData, backendData, passes[p].uniforms, poolSizes, p_->passData[p].descriptorData.descriptorPool,
-				p_->passData[p].descriptorData.descriptorSet, passUniformLayouts[p], p_->passData[p].uniformBuffers, p_->passData[p].uniformTextureBindings);
+				p_->passData[p].descriptorData.descriptorSet, descriptorSetLayout, p_->passData[p].uniformBuffers, p_->passData[p].uniformTextureBindings,
+				p_->passData[p].storageBufferBindings);
 		}
 	}
 
@@ -262,7 +264,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		auto poolSizes = DescriptorUtils::GetPoolSizes(rendererData, p_->uniformInfo.uniforms, HawkEye::BufferType::Mapped, p_->uniformBuffers);
 
 		DescriptorUtils::UpdateSets(rendererData, backendData, p_->uniformInfo.uniforms, poolSizes, p_->descriptorData.descriptorPool,
-			p_->descriptorData.descriptorSet, commonDescriptorSetLayout, p_->uniformBuffers, p_->uniformTextureBindings);
+			p_->descriptorData.descriptorSet, commonDescriptorSetLayout, p_->uniformBuffers, p_->uniformTextureBindings, p_->storageBufferBindings);
 	}
 
 	for (int p = 0; p < p_->passData.size(); ++p)
@@ -378,9 +380,9 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		{
 			passSetLayouts.push_back(commonDescriptorSetLayout);
 		}
-		for (int l = 0; l < passUniformLayouts.size(); ++l)
+		for (int l = 0; l < p_->passData[p].passUniformLayouts.size(); ++l)
 		{
-			passSetLayouts.push_back(passUniformLayouts[l]);
+			passSetLayouts.push_back(p_->passData[p].passUniformLayouts[l]);
 		}
 		VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
 		pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -493,14 +495,10 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	for (int c = 0; c < p_->frameData.size(); ++c)
 	{
 		p_->frameData[c].commandBuffer = commandBuffers[c];
-		CommandUtils::Record(c, backendData, p_);
+		//CommandUtils::Record(c, backendData, p_);
 	}
 
 	VulkanBackend::DestroyDescriptorSetLayout(backendData, commonDescriptorSetLayout);
-	for (int l = 0; l < passUniformLayouts.size(); ++l)
-	{
-		VulkanBackend::DestroyDescriptorSetLayout(backendData, passUniformLayouts[l]);
-	}
 
 	p_->configured = true;
 
@@ -535,6 +533,10 @@ void HawkEye::Pipeline::Shutdown()
 			if (p_->passData[p].pipelineLayout)
 			{
 				VulkanBackend::DestroyPipelineLayout(backendData, p_->passData[p].pipelineLayout);
+			}
+			for (int l = 0; l < p_->passData[p].passUniformLayouts.size(); ++l)
+			{
+				VulkanBackend::DestroyDescriptorSetLayout(backendData, p_->passData[p].passUniformLayouts[l]);
 			}
 		}
 		if (p_->pipelineCache)
@@ -924,19 +926,11 @@ void HawkEye::Pipeline::Refresh()
 
 void HawkEye::Pipeline::ReleaseResources()
 {
-	// Stop using buffer resources.
-	for (int p = 0; p < p_->passes.size(); ++p)
-	{
-		if (p_->passes[p].type == PipelinePass::Type::Rasterized)
-		{
-			UseBuffers(nullptr, 0, p);
-		}
-	}
+	vkDeviceWaitIdle(p_->backendData->logicalDevice);
 
-	// Wait for frames in flight to finish using the resources.
-	for (int f = 0; f < GetFramesInFlight(); ++f)
+	for (int c = 0; c < p_->frameData.size(); ++c)
 	{
-		DrawFrame();
+		VulkanBackend::ResetCommandPool(*p_->backendData, p_->commandPool);
 	}
 }
 
@@ -988,7 +982,7 @@ void HawkEye::Pipeline::SetUniform(const std::string& name, HTexture texture, in
 	auto it = p_->passData[pass].uniformTextureBindings.find(name);
 	if (it == p_->passData[pass].uniformTextureBindings.end())
 	{
-		CoreLogError(VulkanLogger, "Pipeline: Uniform texture with name %s does not exist.", name.c_str());
+		CoreLogError(VulkanLogger, "Pipeline: Uniform texture binding with name %s does not exist.", name.c_str());
 		return;
 	}
 
@@ -1007,6 +1001,34 @@ void HawkEye::Pipeline::SetUniform(const std::string& name, HTexture texture, in
 	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	descriptorWrite.descriptorCount = 1;
 	descriptorWrite.pImageInfo = &imageInfo;
+
+	vkUpdateDescriptorSets(p_->backendData->logicalDevice, 1, &descriptorWrite, 0, nullptr);
+}
+
+void HawkEye::Pipeline::SetStorage(const std::string& name, HBuffer storageBuffer, int pass)
+{
+	auto it = p_->passData[pass].storageBufferBindings.find(name);
+	if (it == p_->passData[pass].storageBufferBindings.end())
+	{
+		CoreLogError(VulkanLogger, "Pipeline: Storage buffer binding with name %s does not exist.", name.c_str());
+		return;
+	}
+
+	WaitForUpload((HawkEye::HRendererData)p_->backendData, storageBuffer);
+
+	VkDescriptorBufferInfo bufferInfo{};
+	bufferInfo.buffer = storageBuffer->buffer.buffer;
+	bufferInfo.offset = 0;
+	bufferInfo.range = storageBuffer->dataSize;
+
+	VkWriteDescriptorSet descriptorWrite{};
+	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrite.dstSet = p_->passData[pass].descriptorData.descriptorSet;
+	descriptorWrite.dstBinding = p_->passData[pass].storageBufferBindings[name];
+	descriptorWrite.dstArrayElement = 0;
+	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	descriptorWrite.descriptorCount = 1;
+	descriptorWrite.pBufferInfo = &bufferInfo;
 
 	vkUpdateDescriptorSets(p_->backendData->logicalDevice, 1, &descriptorWrite, 0, nullptr);
 }
@@ -1086,9 +1108,10 @@ HawkEye::HMaterial HawkEye::Pipeline::CreateMaterialImpl(void* data, int dataSiz
 
 	VkDescriptorPool descriptorPool;
 	VkDescriptorSet descriptorSet;
+	// TODO: Storage buffer bindings.
 	DescriptorUtils::UpdateSets((HRendererData)p_->backendData, backendData, p_->passData[pass].materialData, poolSizes,
 		descriptorPool, descriptorSet, p_->passData[pass].descriptorSetLayouts[0], p_->passData[pass].materialBuffers,
-		/*not used inside*/p_->passData[pass].uniformTextureBindings, prepend, data);
+		/*not used inside*/p_->passData[pass].uniformTextureBindings, p_->passData[pass].storageBufferBindings, prepend, data);
 
 	p_->passData[pass].materials.push_back({ descriptorPool, descriptorSet });
 

@@ -89,6 +89,8 @@ namespace HawkEye
 			SetUniformImpl(name, &data, sizeof(Type), pass);
 		}
 
+		void SetStorage(const std::string& name, HBuffer storageBuffer, int pass);
+
 		struct Private;
 		Private* p_;
 

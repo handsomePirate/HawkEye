@@ -10,6 +10,11 @@ void CommandUtils::Record(int c, const VulkanBackend::BackendData& backendData, 
 	VkCommandBufferBeginInfo commandBufferBeginInfo{};
 	commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
+	if (pipelineData->frameData[c].toBeReleased)
+	{
+		return;
+	}
+
 	// TODO: Multi-threaded recording of command buffers.
 	VulkanCheck(vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo));
 

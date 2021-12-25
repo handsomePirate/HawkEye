@@ -14,6 +14,7 @@ struct DescriptorData
 struct FrameData
 {
 	bool dirty = true;
+	bool toBeReleased = false;
 	VkCommandBuffer commandBuffer;
 };
 
@@ -51,6 +52,8 @@ struct PipelinePassData
 	int vertexSize = 1;
 	std::map<int, std::vector<HawkEye::Pipeline::DrawBuffer>> drawBuffers;
 	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
+	std::vector<VkDescriptorSetLayout> passUniformLayouts;
+	std::map<std::string, int> storageBufferBindings;
 	std::map<std::string, HawkEye::HBuffer> uniformBuffers;
 	std::map<std::string, int> uniformTextureBindings;
 	std::map<std::string, HawkEye::HTexture> uniformTextures;
@@ -89,6 +92,7 @@ struct HawkEye::Pipeline::Private
 	VkSemaphore presentSemaphore = VK_NULL_HANDLE;
 	std::vector<VkFence> frameFences;
 	VkCommandPool commandPool = VK_NULL_HANDLE;
+	std::map<std::string, int> storageBufferBindings;
 	std::map<std::string, HBuffer> uniformBuffers;
 	std::map<std::string, int> uniformTextureBindings;
 	std::map<std::string, HTexture> uniformTextures;

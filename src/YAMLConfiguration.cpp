@@ -230,6 +230,10 @@ void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uni
 					{
 						type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 					}
+					else if (typeStr == "storage")
+					{
+						type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+					}
 				}
 			}
 
@@ -294,7 +298,11 @@ void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uni
 			{
 				CoreLogWarn(VulkanLogger, "Pipeline uniforms: Size is irrelevant for texture uniforms - skipping.");
 			}
-			if (type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+			if (type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER && passNode[u]["size"])
+			{
+				CoreLogWarn(VulkanLogger, "Pipeline uniforms: Size is irrelevant for storage buffer uniforms - skipping.");
+			}
+			if (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
 			{
 				if (!passNode[u]["size"])
 				{

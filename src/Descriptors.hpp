@@ -20,5 +20,5 @@ namespace DescriptorUtils
 		const std::vector<UniformData>& uniformData, const std::vector<VkDescriptorPoolSize>& poolSizes,
 		VkDescriptorPool& descriptorPool, VkDescriptorSet& descriptorSet, VkDescriptorSetLayout descriptorSetLayout,
 		const std::map<std::string, HawkEye::HBuffer>& uniformBuffers, std::map<std::string, int>& uniformTextureBindings,
-		const std::string& namePrepend = "", void* data = nullptr);
+		std::map<std::string, int>& storageBufferBindings, const std::string& namePrepend = "", void* data = nullptr);
 }

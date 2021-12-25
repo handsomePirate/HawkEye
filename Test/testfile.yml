@@ -12,8 +12,12 @@ Pipeline:
         type: computed
         dim: 3
         shaders:
-            compute: ../../src/shaders/test.comp.glsl
+            compute: ../../src/shaders/voxel-viewer.comp.glsl
+        # TODO: Make pre-allocated and not pre-allocated.
         uniforms:
+          -
+            name: test
+            type: storage
 #      -
 #        type: rasterized
 #        dim: 3

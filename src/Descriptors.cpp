@@ -33,9 +33,10 @@ std::vector<VkDescriptorPoolSize> DescriptorUtils::GetPoolSizes(HawkEye::HRender
 	const std::vector<UniformData>& uniformData, HawkEye::BufferType uniformBufferType, std::map<std::string,
 	HawkEye::HBuffer>& uniformBuffers, const std::string& namePrepend, void* data)
 {
-	std::vector<VkDescriptorPoolSize> poolSizes(2);
+	std::vector<VkDescriptorPoolSize> poolSizes(3);
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 
 	int cumulativeSize = 0;
 	for (int u = 0; u < uniformData.size(); ++u)
@@ -51,6 +52,10 @@ std::vector<VkDescriptorPoolSize> DescriptorUtils::GetPoolSizes(HawkEye::HRender
 		{
 			++poolSizes[1].descriptorCount;
 		}
+		else if (uniformData[u].type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+		{
+			++poolSizes[2].descriptorCount;
+		}
 		cumulativeSize += uniformData[u].size;
 	}
 
@@ -61,7 +66,7 @@ void DescriptorUtils::UpdateSets(HawkEye::HRendererData rendererData, const Vulk
 	const std::vector<UniformData>& uniformData, const std::vector<VkDescriptorPoolSize>& poolSizes,
 	VkDescriptorPool& descriptorPool, VkDescriptorSet& descriptorSet, VkDescriptorSetLayout descriptorSetLayout,
 	const std::map<std::string, HawkEye::HBuffer>& uniformBuffers, std::map<std::string, int>& uniformTextureBindings,
-	const std::string& namePrepend, void* data)
+	std::map<std::string, int>& storageBufferBindings, const std::string& namePrepend, void* data)
 {
 	descriptorPool = VulkanBackend::CreateDescriptorPool(backendData, poolSizes, 1);
 	descriptorSet = VulkanBackend::AllocateDescriptorSet(backendData, descriptorPool, descriptorSetLayout);
@@ -70,6 +75,13 @@ void DescriptorUtils::UpdateSets(HawkEye::HRendererData rendererData, const Vulk
 	int cumulativeSize = 0;
 	while (k < uniformData.size())
 	{
+		if (uniformData[k].type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+		{
+			storageBufferBindings[namePrepend + uniformData[k].name] = k;
+			++k;
+			continue;
+		}
+
 		if (uniformData[k].type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
 		{
 			if (!data)
@@ -107,7 +119,7 @@ void DescriptorUtils::UpdateSets(HawkEye::HRendererData rendererData, const Vulk
 		int u = k;
 		for (; u < uniformData.size() &&
 			uniformData[u].visibility == uniformData[k].visibility &&
-			uniformData[u].type != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			uniformData[u].type == uniformData[k].type;
 			++u)
 		{
 			VkDescriptorBufferInfo bufferInfo{};
