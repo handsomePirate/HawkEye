@@ -147,6 +147,28 @@ PipelinePass ConfigureLayer(const YAML::Node& passNode)
 		}
 	}
 
+	if (passNode["cull"])
+	{
+		std::string cullMode = passNode["cull"].as<std::string>();
+		if (cullMode == "back")
+		{
+			pass.cullMode = VK_CULL_MODE_BACK_BIT;
+		}
+		else if (cullMode == "front")
+		{
+			pass.cullMode = VK_CULL_MODE_FRONT_BIT;
+		}
+		else
+		{
+			pass.cullMode = VK_CULL_MODE_NONE;
+			CoreLogWarn(VulkanLogger, "Pipeline pass: Wrong cull mode format - no culling used.");
+		}
+	}
+	else
+	{
+		pass.cullMode = VK_CULL_MODE_NONE;
+	}
+
 	ConfigureUniforms(passNode["material"], pass.material);
 	PipelineUniforms data;
 	if (pass.dimension == 3)

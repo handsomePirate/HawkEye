@@ -138,7 +138,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	p_->phases.resize(retargetChainLength);
 	for (int t = 0; t < p_->phases.size() - 1; ++t)
 	{
-		p_->phases[t].colorTarget = FramebufferUtils::CreateColorTarget(backendData, surfaceData, width, height, true);
+		p_->phases[t].colorTarget = FramebufferUtils::CreateColorTarget(backendData, surfaceData, true);
 	}
 
 	if (p_->phases.size() > 1)
@@ -154,7 +154,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	{
 		if (p_->pipelineTargets[t] == PipelineTarget::Depth)
 		{
-			p_->targets[(int)PipelineTarget::Depth] = FramebufferUtils::CreateDepthTarget(backendData, surfaceData, width, height);
+			p_->targets[(int)PipelineTarget::Depth] = FramebufferUtils::CreateDepthTarget(backendData, surfaceData);
 			p_->hasDepthTarget = true;
 		}
 	}
@@ -456,7 +456,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 
 			p_->passData[p].rasterizationPipeline = VulkanBackend::CreateGraphicsPipeline(backendData,
 				VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_POLYGON_MODE_FILL,
-				VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE,
+				passes[p].cullMode, VK_FRONT_FACE_COUNTER_CLOCKWISE,
 				VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
 				VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS,
 				VK_SAMPLE_COUNT_1_BIT, dynamicStates, vertexInput, p_->phases[p_->passData[p].colorTarget].renderPass,
@@ -693,9 +693,6 @@ void HawkEye::Pipeline::DrawFrame()
 
 	uint32_t frameIndex = (uint32_t)(p_->currentFrame % p_->frameFences.size());
 
-	vkWaitForFences(device, 1, &p_->frameFences[frameIndex], VK_TRUE, UINT64_MAX);
-	vkResetFences(device, 1, &p_->frameFences[frameIndex]);
-
 	uint32_t currentImageIndex;
 	VkResult result = vkAcquireNextImageKHR(device, p_->swapchain, UINT64_MAX, p_->presentSemaphore,
 		VK_NULL_HANDLE, &currentImageIndex);
@@ -706,6 +703,9 @@ void HawkEye::Pipeline::DrawFrame()
 		return;
 	}
 	VulkanCheck(result);
+
+	vkWaitForFences(device, 1, &p_->frameFences[frameIndex], VK_TRUE, UINT64_MAX);
+	vkResetFences(device, 1, &p_->frameFences[frameIndex]);
 
 	if (p_->frameData[currentImageIndex].dirty)
 	{
@@ -777,9 +777,6 @@ void HawkEye::Pipeline::Resize(int width, int height)
 	VulkanBackend::SurfaceData& surfaceData = *p_->surfaceData.get();
 	VkDevice device = p_->backendData->logicalDevice;
 
-	surfaceData.width = width;
-	surfaceData.height = height;
-
 	vkDeviceWaitIdle(device);
 
 	for (int t = 0; t < p_->phases.size(); ++t)
@@ -812,6 +809,9 @@ void HawkEye::Pipeline::Resize(int width, int height)
 		VulkanBackend::GetSurfaceCapabilities(backendData, surfaceData);
 		VulkanBackend::GetSurfaceExtent(backendData, surfaceData);
 
+		surfaceData.width = surfaceData.surfaceExtent.width;
+		surfaceData.height = surfaceData.surfaceExtent.height;
+
 		if (p_->containsComputedPass)
 		{
 			p_->swapchain = VulkanBackend::RecreateSwapchain(*p_->backendData, surfaceData, p_->swapchain,
@@ -838,11 +838,11 @@ void HawkEye::Pipeline::Resize(int width, int height)
 
 	for (int t = 0; t < p_->phases.size() - 1; ++t)
 	{
-		p_->phases[t].colorTarget = FramebufferUtils::CreateColorTarget(backendData, surfaceData, width, height, true);
+		p_->phases[t].colorTarget = FramebufferUtils::CreateColorTarget(backendData, surfaceData, true);
 	}
 	if (p_->hasDepthTarget == true)
 	{
-		p_->targets[(int)PipelineTarget::Depth] = FramebufferUtils::CreateDepthTarget(backendData, surfaceData, width, height);
+		p_->targets[(int)PipelineTarget::Depth] = FramebufferUtils::CreateDepthTarget(backendData, surfaceData);
 	}
 
 	for (int t = 0; t < p_->phases.size(); ++t)
@@ -862,7 +862,8 @@ void HawkEye::Pipeline::Resize(int width, int height)
 			{
 				attachments.push_back(p_->targets[(int)PipelineTarget::Depth].imageView);
 			}
-			p_->phases[t].framebuffers[v] = VulkanBackend::CreateFramebuffer(backendData, width, height, p_->phases[t].renderPass, attachments);
+			p_->phases[t].framebuffers[v] = VulkanBackend::CreateFramebuffer(backendData, surfaceData.width, surfaceData.height,
+				p_->phases[t].renderPass, attachments);
 		}
 	}
 

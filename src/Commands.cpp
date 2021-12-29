@@ -87,7 +87,7 @@ void CommandUtils::Record(int c, const VulkanBackend::BackendData& backendData, 
 		}
 		else
 		{
-			if (pipelineData->passData[p].materials.size() == 0 || pipelineData->passData[p].empty)
+			if (currentPhaseIndex != -1 && (pipelineData->passData[p].materials.size() == 0 || pipelineData->passData[p].empty))
 			{
 				continue;
 			}
@@ -99,6 +99,9 @@ void CommandUtils::Record(int c, const VulkanBackend::BackendData& backendData, 
 
 			if (!renderPassOpen)
 			{
+				if (currentPhaseIndex == -1) {
+					currentPhaseIndex = 0;
+				}
 				VkRenderPassBeginInfo renderPassBeginInfo{};
 				renderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 				renderPassBeginInfo.renderPass = pipelineData->phases[currentPhaseIndex].renderPass;

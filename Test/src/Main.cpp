@@ -377,12 +377,7 @@ int main(int argc, char* argv[])
 		drawBuffers[1].material = material2;
 		drawBuffers[1].instanceBuffer = instanceBuffer;
 
-		Eigen::Vector4f testColor{ 1, 1, 1, 1 };
-		HawkEye::HBuffer storageBuffer = HawkEye::UploadBuffer(rendererData, &testColor, 4 * sizeof(float), HawkEye::BufferUsage::Storage,
-			HawkEye::BufferType::DeviceLocal);
-
 		renderingPipeline1.UseBuffers(drawBuffers, drawBufferCount, 1);
-		renderingPipeline1.SetStorage("test", storageBuffer, 0);
 		Eigen::Matrix4f viewProjectionMatrix = camera1.GetProjectionMatrix() * camera1.GetViewMatrix();
 		//renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 1);
 		
@@ -426,8 +421,6 @@ int main(int argc, char* argv[])
 		HawkEye::DeleteBuffer(rendererData, vertexBuffer1);
 		HawkEye::DeleteBuffer(rendererData, indexBuffer);
 		HawkEye::DeleteBuffer(rendererData, instanceBuffer);
-
-		HawkEye::DeleteBuffer(rendererData, storageBuffer);
 
 		//for (int t = 0; t < textures.size(); ++t)
 		//{

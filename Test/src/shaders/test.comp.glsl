@@ -133,8 +133,8 @@ void main()
 
 	vec3 point = vec3(circle(points[4], pointModifier * 15.f));
 
-	vec3 lowColor = vec3(.1f, .1f, 0.f);
-	vec3 highColor = vec3(.5f, .4f, .6f);
+	vec3 lowColor = vec3(.1f, 0.f, 0.f);
+	vec3 highColor = vec3(.6f, .5f, .8f);
 	vec3 clampedColor = point + lines;
 	vec3 gradientColor = clamp(vec3(0.8f), vec3(0.2f), clampedColor) * mix(lowColor, highColor, clampedColor);
 

@@ -12,33 +12,29 @@ Pipeline:
         type: computed
         dim: 3
         shaders:
-            compute: ../../src/shaders/voxel-viewer.comp.glsl
-        # TODO: Make pre-allocated and not pre-allocated.
+            compute: ../../src/shaders/test.comp.glsl
+      -
+        type: rasterized
+        dim: 3
+        shaders:
+            vertex: ../../src/shaders/test.vert.glsl
+            fragment: ../../src/shaders/test.frag.glsl
         uniforms:
+        material:
           -
-            name: test
-            type: storage
-#      -
-#        type: rasterized
-#        dim: 3
-#        shaders:
-#            vertex: ../../src/shaders/test.vert.glsl
-#            fragment: ../../src/shaders/test.frag.glsl
-#        uniforms:
-#        material:
-#        -
-#            name: color
-#            type: uniform
-#            size: 12
-#        vertex attributes:
-#            # position
-#        - vec3
-#            # normal
-#        - vec3
-#            # color
-#        # - vec3
-#            # uv
-#        - vec2
+            name: color
+            type: uniform
+            size: 12
+        vertex attributes:
+            # position
+          - vec3
+            # normal
+          - vec3
+            # color
+        # - vec3
+            # uv
+          - vec2
+        cull: front
 #      -
 #        type: computed
 #        dim: 2

@@ -55,6 +55,7 @@ struct PipelinePass
 		} type;
 	};
 	std::vector<VertexAttribute> attributes;
+	VkCullModeFlags cullMode;
 
 	std::vector<UniformData> material;
 	std::vector<UniformData> uniforms;
