@@ -49,6 +49,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		VulkanBackend::GetSurfaceExtent(backendData, surfaceData);
 		VulkanBackend::GetPresentMode(backendData, surfaceData);
 		VulkanBackend::GetSwapchainImageCount(surfaceData);
+		p_->commonFrameData.framesInFlightCount = surfaceData.swapchainImageCount;
 
 		VulkanBackend::FilterPresentQueues(backendData, surfaceData);
 
@@ -106,12 +107,13 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 	VulkanBackend::AllocateCommandBuffers(backendData, p_->commonFrameData.commandPool, commandBuffers.data(),
 		(uint32_t)p_->commonFrameData.framesInFlightCount);
 
+	p_->commonFrameData.commandBuffers.resize(p_->commonFrameData.framesInFlightCount);
 	for (int c = 0; c < p_->commonFrameData.framesInFlightCount; ++c)
 	{
 		p_->commonFrameData.commandBuffers[c].commandBuffer = commandBuffers[c];
 	}
 
-	p_->frameGraph.Configure(configData, p_->commonFrameData);
+	p_->frameGraph.Configure(configData["nodes"], p_->commonFrameData);
 
 	p_->textureUpdateData.resize(p_->commonFrameData.framesInFlightCount);
 	p_->bufferUpdateData.resize(p_->commonFrameData.framesInFlightCount);
@@ -171,7 +173,7 @@ void HawkEye::Pipeline::Shutdown()
 
 void HawkEye::Pipeline::UseBuffers(const std::string& nodeName, DrawBuffer* drawBuffers, int bufferCount)
 {
-	// TODO.
+	p_->frameGraph.UseBuffers(nodeName, drawBuffers, bufferCount);
 
 	for (int c = 0; c < p_->commonFrameData.framesInFlightCount; ++c)
 	{
@@ -208,7 +210,7 @@ void HawkEye::Pipeline::DrawFrame()
 	if (p_->commonFrameData.commandBuffers[currentImageIndex].dirty)
 	{
 		VulkanBackend::ResetCommandBuffer(p_->commonFrameData.commandBuffers[currentImageIndex].commandBuffer);
-
+		p_->commonFrameData.commandBuffers[currentImageIndex].dirty = false;
 		p_->frameGraph.Record(p_->commonFrameData.commandBuffers[currentImageIndex].commandBuffer, currentImageIndex, p_->commonFrameData);
 	}
 
@@ -362,6 +364,7 @@ void HawkEye::Pipeline::SetUniform(const std::string& nodeName, const std::strin
 void HawkEye::Pipeline::SetUniformImpl(const std::string& nodeName, const std::string& name, void* data, int dataSize)
 {
 	// TODO: Make safe.
+	// TODO: Handle multiple updates of the same uniform in the same frame.
 	void* dataCopy = malloc(dataSize);
 	memcpy(dataCopy, data, dataSize);
 	std::shared_ptr<PreallocatedUpdateData> preallocatedData = std::make_shared<PreallocatedUpdateData>(

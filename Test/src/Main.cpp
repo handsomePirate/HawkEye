@@ -214,7 +214,7 @@ void HandleInput(float timeDelta)
 
 int main(int argc, char* argv[])
 {
-	try
+	//try
 	{
 		// Filesystem.
 
@@ -440,10 +440,10 @@ int main(int argc, char* argv[])
 		delete testWindow2;
 #endif
 	}
-	catch (const std::exception& e)
-	{
-		std::cout << e.what() << std::endl;
-	}
+	//catch (const std::exception& e)
+	//{
+	//	std::cout << e.what() << std::endl;
+	//}
 
 	return 0;
 }
