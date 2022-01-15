@@ -40,7 +40,10 @@ void FrameGraph::Configure(const YAML::Node& graphConfiguration, const CommonFra
 
 void FrameGraph::Shutdown(const CommonFrameData& commonFrameData)
 {
-	// TODO.
+	for (auto&& node : nodes)
+	{
+		node.second->Shutdown(commonFrameData);
+	}
 }
 
 void FrameGraph::Record(VkCommandBuffer commandBuffer, int frameInFlight, const CommonFrameData& commonFrameData)
@@ -54,10 +57,7 @@ void FrameGraph::Record(VkCommandBuffer commandBuffer, int frameInFlight, const 
 
 void FrameGraph::Resize(const CommonFrameData& commonFrameData)
 {
-	for (auto& node : nodes)
-	{
-		node.second->Resize(commonFrameData);
-	}
+	RecursivelyResize(finalNode, commonFrameData);
 }
 
 void FrameGraph::UpdatePreallocatedUniformData(const std::string& nodeName, const std::string& name, int frameInFlight,
@@ -191,4 +191,45 @@ const OutputTargetCharacteristics& FrameGraph::RecursivelyRecord(VkCommandBuffer
 	bool containsData = node->Record(commandBuffer, frameInFlight, commonFrameData, true, true);
 
 	return node->GetOutputCharacteristics();
+}
+
+void FrameGraph::RecursivelyResize(FrameGraphNode* node, const CommonFrameData& commonFrameData)
+{
+	// Get all previous nodes.
+	const auto& inputCharacteristics = node->GetInputCharacteristics();
+
+	// Assemble all previous nodes.
+	std::set<std::string> dependencies;
+	for (int c = 0; c < inputCharacteristics.size(); ++c)
+	{
+		if (inputCharacteristics[c].colorTarget && inputCharacteristics[c].colorTarget->connectionName != "")
+		{
+			dependencies.insert(inputCharacteristics[c].colorTarget->connectionName);
+		}
+		if (inputCharacteristics[c].depthTarget && inputCharacteristics[c].depthTarget->connectionName != "")
+		{
+			dependencies.insert(inputCharacteristics[c].depthTarget->connectionName);
+		}
+		if (inputCharacteristics[c].sampleTarget && inputCharacteristics[c].sampleTarget->connectionName != "")
+		{
+			dependencies.insert(inputCharacteristics[c].sampleTarget->connectionName);
+		}
+	}
+
+	// Use input nodes' outputs to configure this node.
+	std::vector<NodeOutputs*> nodeInputs;
+	for (const auto& dependency : dependencies)
+	{
+		auto it = nodes.find(dependency);
+		if (it == nodes.end())
+		{
+			// TODO: Error.
+			return;
+		}
+		RecursivelyResize(nodes[dependency].get(), commonFrameData);
+		nodeInputs.push_back(nodes[dependency]->GetOutputs());
+	}
+
+	// TODO: Use swapchain logic, render pass logic
+	node->Resize(commonFrameData, nodeInputs);
 }

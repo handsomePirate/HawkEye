@@ -6,13 +6,14 @@ class DescriptorSystem
 {
 public:
 	DescriptorSystem() = default;
-	~DescriptorSystem();
+	~DescriptorSystem() = default;
 
 	static VkDescriptorSetLayout InitSetLayout(VulkanBackend::BackendData* backendData,
 		const std::vector<UniformData>& uniformData);
 
 	void Init(VulkanBackend::BackendData* backendData, HawkEye::HRendererData rendererData,
 		const std::vector<UniformData>& uniformData, int framesInFlightCount, VkDescriptorSetLayout descriptorSetLayout);
+	void Shutdown();
 
 	VkDescriptorSet GetSet(int frameInFlight) const;
 

@@ -29,6 +29,7 @@ private:
 	void RecursivelyConfigure(FrameGraphNode* node, const YAML::Node& graphConfiguration, const CommonFrameData& commonFrameData);
 	const OutputTargetCharacteristics& RecursivelyRecord(VkCommandBuffer commandBuffer, int frameInFlight,
 		const CommonFrameData& commonFrameData, FrameGraphNode* node);
+	void RecursivelyResize(FrameGraphNode* node, const CommonFrameData& commonFrameData);
 
 	std::map<std::string, std::unique_ptr<FrameGraphNode>> nodes;
 	FrameGraphNode* finalNode;

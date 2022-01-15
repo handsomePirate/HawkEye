@@ -17,10 +17,12 @@ public:
 		const std::vector<NodeOutputs*>& nodeInputs, std::vector<InputTargetCharacteristics>& inputCharacteristics,
 		const CommonFrameData& commonFrameData, VkRenderPass renderPassReference, bool useSwapchain) = 0;
 
+	virtual void Shutdown(const CommonFrameData& commonFrameData) = 0;
+
 	virtual bool Record(VkCommandBuffer commandBuffer, int frameInFlight, const CommonFrameData& commonFrameData,
 		bool startRenderPass, bool endRenderPass) = 0;
 
-	virtual void Resize(const CommonFrameData& commonFrameData) = 0;
+	virtual void Resize(const CommonFrameData& commonFrameData, const std::vector<NodeOutputs*>& nodeInputs) = 0;
 
 	void UpdatePreallocatedUniformData(const std::string& name, int frameInFlight, void* data, int dataSize);
 	void UpdateTexture(const std::string& name, int frameInFlight, HawkEye::HTexture texture);
@@ -40,6 +42,10 @@ protected:
 	std::string name;
 	int samples;
 	int framesInFlightCount;
+	bool useSwapchain;
+	bool reuseColorTarget;
+	bool reuseDepthTarget;
+	bool reuseSampleTarget;
 
 	VulkanBackend::BackendData* backendData;
 	HawkEye::HRendererData rendererData;

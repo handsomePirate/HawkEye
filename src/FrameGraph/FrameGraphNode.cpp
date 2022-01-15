@@ -91,6 +91,12 @@ HawkEye::HMaterial FrameGraphNode::CreateMaterial(void* data, int dataSize)
 
 void FrameGraphNode::UseBuffers(HawkEye::Pipeline::DrawBuffer* drawBuffers, int bufferCount)
 {
-	// TODO: Does this copy the data? Correct ones?
-	this->drawBuffers[(int)drawBuffers->material] = std::vector<HawkEye::Pipeline::DrawBuffer>(drawBuffers, drawBuffers + bufferCount);
+	for (int m = 0; m < this->drawBuffers.size(); ++m)
+	{
+		this->drawBuffers[m].clear();
+	}
+	for (int b = 0; b < bufferCount; ++b)
+	{
+		this->drawBuffers[(int)drawBuffers[b].material].push_back(drawBuffers[b]);
+	}
 }

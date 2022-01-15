@@ -75,84 +75,19 @@ void RasterizeNode::Configure(const YAML::Node& nodeConfiguration, int framesInF
 		}
 	}
 
-	if (!useSwapchain && nodeOutputCharacteristics.colorTarget)
-	{
-		if (nodeOutputCharacteristics.colorTarget && !reuseColorTarget)
-		{
-			nodeOutputs.colorTarget = std::make_unique<Target>(FramebufferUtils::CreateColorTarget(*backendData,
-				*commonFrameData.surfaceData.get(), nodeOutputCharacteristics.colorTarget->format, !useSwapchain));
-		}
-		else
-		{
-			nodeOutputs.colorTarget = std::make_unique<Target>(
-				Target{ nodeInputs[0]->colorTarget->image, nodeInputs[0]->colorTarget->imageView, nodeInputs[0]->colorTarget->inherited });
-			nodeOutputs.colorTarget->inherited = true;
-		}
-	}
+	this->useSwapchain = useSwapchain;
+	this->reuseColorTarget = reuseColorTarget;
+	this->reuseDepthTarget = reuseDepthTarget;
+	this->reuseSampleTarget = reuseSampleTarget;
 
-	if (nodeOutputCharacteristics.depthTarget)
-	{
-		if (!reuseDepthTarget)
-		{
-			nodeOutputs.depthTarget = std::make_unique<Target>(FramebufferUtils::CreateDepthTarget(*backendData,
-				*commonFrameData.surfaceData.get(), nodeOutputCharacteristics.depthTarget->format));
-		}
-		else
-		{
-			nodeOutputs.depthTarget = std::make_unique<Target>(
-				Target{ nodeInputs[0]->depthTarget->image, nodeInputs[0]->depthTarget->imageView, nodeInputs[0]->depthTarget->inherited });
-			nodeOutputs.depthTarget->inherited = true;
-		}
-	}
-
-	// TODO: Sample target in render passes.
-	if (nodeOutputCharacteristics.sampleTarget)
-	{
-		if (!reuseSampleTarget)
-		{
-			nodeOutputs.sampleTarget = std::make_unique<Target>(FramebufferUtils::CreateColorTarget(*backendData,
-				*commonFrameData.surfaceData.get(), nodeOutputCharacteristics.sampleTarget->format));
-		}
-		else
-		{
-			nodeOutputs.sampleTarget = std::make_unique<Target>(
-				Target{ nodeInputs[0]->sampleTarget->image, nodeInputs[0]->sampleTarget->imageView, nodeInputs[0]->sampleTarget->inherited });
-			nodeOutputs.sampleTarget->inherited = true;
-		}
-	}
+	CreateColorTarget(commonFrameData, nodeInputs);
+	CreateDepthTarget(commonFrameData, nodeInputs);
+	CreateSampleTarget(commonFrameData, nodeInputs);
 
 	// framebuffer
 	FrameGraphNode::renderPassReference = renderPassReference;
 	framebuffers.resize(framesInFlightCount);
-	for (int f = 0; f < framesInFlightCount; ++f)
-	{
-		std::vector<VkImageView> attachments;
-		if (useSwapchain)
-		{
-			attachments.push_back(commonFrameData.swapchainImageViews[f]);
-		}
-		else
-		{
-			attachments.push_back(nodeOutputs.colorTarget->imageView);
-		}
-
-		if (nodeOutputs.depthTarget)
-		{
-			attachments.push_back(nodeOutputs.depthTarget->imageView);
-		}
-
-		if (nodeOutputs.sampleTarget)
-		{
-			attachments.push_back(nodeOutputs.sampleTarget->imageView);
-		}
-
-		// TODO: Figure out the target sizing.
-		float widthModifier = nodeOutputCharacteristics.colorTarget ? nodeOutputCharacteristics.colorTarget->widthModifier : 1.f;
-		float heightModifier = nodeOutputCharacteristics.colorTarget ? nodeOutputCharacteristics.colorTarget->heightModifier : 1.f;;
-		framebuffers[f] = VulkanBackend::CreateFramebuffer(*backendData,
-			(int)(commonFrameData.surfaceData->width * widthModifier), (int)(commonFrameData.surfaceData->height * heightModifier),
-			renderPassReference, attachments);
-	}
+	CreateFramebuffers(commonFrameData);
 
 	// descriptors
 	const int descriptorSetLayoutCount = 2;
@@ -243,6 +178,48 @@ void RasterizeNode::Configure(const YAML::Node& nodeConfiguration, int framesInF
 		VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS,
 		VK_SAMPLE_COUNT_1_BIT, dynamicStates, vertexInput, renderPassReference,
 		pipelineLayout, shaderStages, commonFrameData.pipelineCache);
+}
+
+void RasterizeNode::Shutdown(const CommonFrameData& commonFrameData)
+{
+	const VulkanBackend::BackendData& backendData = *commonFrameData.backendData;
+	
+	VulkanBackend::DestroyPipeline(backendData, pipeline);
+	VulkanBackend::DestroyPipelineLayout(backendData, pipelineLayout);
+
+	for (int f = 0; f < framebuffers.size(); ++f)
+	{
+		VulkanBackend::DestroyFramebuffer(backendData, framebuffers[f]);
+	}
+
+	for (int s = 0; s < shaderModules.size(); ++s)
+	{
+		VulkanBackend::DestroyShaderModule(backendData, shaderModules[s]);
+	}
+	shaderModules.clear();
+
+	VulkanBackend::DestroyDescriptorSetLayout(backendData, materialDescriptorSetLayout);
+	VulkanBackend::DestroyDescriptorSetLayout(backendData, uniformDescriptorSetLayout);
+
+	if (nodeOutputs.colorTarget)
+	{
+		FramebufferUtils::DestroyTarget(backendData, *nodeOutputs.colorTarget.get());
+	}
+	if (nodeOutputs.depthTarget)
+	{
+		FramebufferUtils::DestroyTarget(backendData, *nodeOutputs.depthTarget.get());
+	}
+	if (nodeOutputs.sampleTarget)
+	{
+		FramebufferUtils::DestroyTarget(backendData, *nodeOutputs.sampleTarget.get());
+	}
+
+	uniformDescriptorSystem.Shutdown();
+
+	for (int m = 0; m < materialDescriptorSystems.size(); ++m)
+	{
+		materialDescriptorSystems[m]->Shutdown();
+	}
 }
 
 bool RasterizeNode::Record(VkCommandBuffer commandBuffer, int frameInFlight, const CommonFrameData& commonFrameData,
@@ -336,7 +313,117 @@ bool RasterizeNode::Record(VkCommandBuffer commandBuffer, int frameInFlight, con
 	return true;
 }
 
-void RasterizeNode::Resize(const CommonFrameData& commonFrameData)
+void RasterizeNode::Resize(const CommonFrameData& commonFrameData, const std::vector<NodeOutputs*>& nodeInputs)
 {
+	const VulkanBackend::BackendData& backendData = *commonFrameData.backendData;
 
+	if (nodeOutputs.colorTarget)
+	{
+		FramebufferUtils::DestroyTarget(backendData, *nodeOutputs.colorTarget.get());
+		CreateColorTarget(commonFrameData, nodeInputs);
+	}
+	if (nodeOutputs.depthTarget)
+	{
+		FramebufferUtils::DestroyTarget(backendData, *nodeOutputs.depthTarget.get());
+		CreateDepthTarget(commonFrameData, nodeInputs);
+	}
+	if (nodeOutputs.sampleTarget)
+	{
+		FramebufferUtils::DestroyTarget(backendData, *nodeOutputs.sampleTarget.get());
+		CreateSampleTarget(commonFrameData, nodeInputs);
+	}
+
+	for (int f = 0; f < framebuffers.size(); ++f)
+	{
+		VulkanBackend::DestroyFramebuffer(backendData, framebuffers[f]);
+	}
+	CreateFramebuffers(commonFrameData);
+}
+
+void RasterizeNode::CreateColorTarget(const CommonFrameData& commonFrameData, const std::vector<NodeOutputs*>& nodeInputs)
+{
+	if (!useSwapchain && nodeOutputCharacteristics.colorTarget)
+	{
+		if (nodeOutputCharacteristics.colorTarget && !reuseColorTarget)
+		{
+			nodeOutputs.colorTarget = std::make_unique<Target>(FramebufferUtils::CreateColorTarget(*backendData,
+				*commonFrameData.surfaceData.get(), nodeOutputCharacteristics.colorTarget->format, !useSwapchain));
+		}
+		else
+		{
+			nodeOutputs.colorTarget = std::make_unique<Target>(
+				Target{ nodeInputs[0]->colorTarget->image, nodeInputs[0]->colorTarget->imageView, nodeInputs[0]->colorTarget->inherited });
+			nodeOutputs.colorTarget->inherited = true;
+		}
+	}
+}
+
+void RasterizeNode::CreateDepthTarget(const CommonFrameData& commonFrameData, const std::vector<NodeOutputs*>& nodeInputs)
+{
+	if (nodeOutputCharacteristics.depthTarget)
+	{
+		if (!reuseDepthTarget)
+		{
+			nodeOutputs.depthTarget = std::make_unique<Target>(FramebufferUtils::CreateDepthTarget(*backendData,
+				*commonFrameData.surfaceData.get(), nodeOutputCharacteristics.depthTarget->format));
+		}
+		else
+		{
+			nodeOutputs.depthTarget = std::make_unique<Target>(
+				Target{ nodeInputs[0]->depthTarget->image, nodeInputs[0]->depthTarget->imageView, nodeInputs[0]->depthTarget->inherited });
+			nodeOutputs.depthTarget->inherited = true;
+		}
+	}
+}
+
+void RasterizeNode::CreateSampleTarget(const CommonFrameData& commonFrameData, const std::vector<NodeOutputs*>& nodeInputs)
+{
+	// TODO: Sample target in render passes.
+	if (nodeOutputCharacteristics.sampleTarget)
+	{
+		if (!reuseSampleTarget)
+		{
+			nodeOutputs.sampleTarget = std::make_unique<Target>(FramebufferUtils::CreateColorTarget(*backendData,
+				*commonFrameData.surfaceData.get(), nodeOutputCharacteristics.sampleTarget->format));
+		}
+		else
+		{
+			nodeOutputs.sampleTarget = std::make_unique<Target>(
+				Target{ nodeInputs[0]->sampleTarget->image, nodeInputs[0]->sampleTarget->imageView, nodeInputs[0]->sampleTarget->inherited });
+			nodeOutputs.sampleTarget->inherited = true;
+		}
+	}
+}
+
+void RasterizeNode::CreateFramebuffers(const CommonFrameData& commonFrameData)
+{
+	for (int f = 0; f < framesInFlightCount; ++f)
+	{
+		std::vector<VkImageView> attachments;
+		if (useSwapchain)
+		{
+			attachments.push_back(commonFrameData.swapchainImageViews[f]);
+		}
+		else
+		{
+			attachments.push_back(nodeOutputs.colorTarget->imageView);
+		}
+
+		if (nodeOutputs.depthTarget)
+		{
+			attachments.push_back(nodeOutputs.depthTarget->imageView);
+		}
+
+		if (nodeOutputs.sampleTarget)
+		{
+			attachments.push_back(nodeOutputs.sampleTarget->imageView);
+		}
+
+		// TODO: Figure out the target sizing.
+		float widthModifier = nodeOutputCharacteristics.colorTarget ? nodeOutputCharacteristics.colorTarget->widthModifier : 1.f;
+		float heightModifier = nodeOutputCharacteristics.colorTarget ? nodeOutputCharacteristics.colorTarget->heightModifier : 1.f;;
+		framebuffers[f] = VulkanBackend::CreateFramebuffer(*backendData,
+			(int)(commonFrameData.surfaceData->width * widthModifier), (int)(commonFrameData.surfaceData->height * heightModifier),
+			renderPassReference, attachments);
+	}
 }

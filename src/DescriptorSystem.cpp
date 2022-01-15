@@ -1,19 +1,6 @@
 #include "DescriptorSystem.hpp"
 #include "Resources.hpp"
 
-DescriptorSystem::~DescriptorSystem()
-{
-	if (descriptorPool != VK_NULL_HANDLE)
-	{
-		VulkanBackend::DestroyDescriptorPool(*backendData, descriptorPool);
-	}
-
-	for (auto& preallocatedBuffer : preallocatedBuffers)
-	{
-		HawkEye::DeleteBuffer(rendererData, preallocatedBuffer.second);
-	}
-}
-
 VkDescriptorSetLayout DescriptorSystem::InitSetLayout(VulkanBackend::BackendData* backendData,
 	const std::vector<UniformData>& uniformData)
 {
@@ -143,6 +130,19 @@ void DescriptorSystem::Init(VulkanBackend::BackendData* backendData, HawkEye::HR
 			bufferInfosSize = (int)bufferInfos.size();
 		}
 		k += bufferInfosSize;
+	}
+}
+
+void DescriptorSystem::Shutdown()
+{
+	if (descriptorPool != VK_NULL_HANDLE)
+	{
+		VulkanBackend::DestroyDescriptorPool(*backendData, descriptorPool);
+	}
+
+	for (auto& preallocatedBuffer : preallocatedBuffers)
+	{
+		HawkEye::DeleteBuffer(rendererData, preallocatedBuffer.second);
 	}
 }
 
