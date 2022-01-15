@@ -1,5 +1,6 @@
 #include "Descriptors.hpp"
 
+/*
 VkDescriptorSetLayout DescriptorUtils::GetSetLayout(const VulkanBackend::BackendData& backendData,
 	const std::vector<UniformData>& uniformData)
 {
@@ -31,7 +32,7 @@ std::vector<VkDescriptorPoolSize> DescriptorUtils::FilterPoolSizes(const std::ve
 
 std::vector<VkDescriptorPoolSize> DescriptorUtils::GetPoolSizes(HawkEye::HRendererData rendererData,
 	const std::vector<UniformData>& uniformData, HawkEye::BufferType uniformBufferType, std::map<std::string,
-	HawkEye::HBuffer>& uniformBuffers, const std::string& namePrepend, void* data)
+	HawkEye::HBuffer>& uniformBuffers, bool filter, const std::string& namePrepend, void* data)
 {
 	std::vector<VkDescriptorPoolSize> poolSizes(3);
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -59,7 +60,14 @@ std::vector<VkDescriptorPoolSize> DescriptorUtils::GetPoolSizes(HawkEye::HRender
 		cumulativeSize += uniformData[u].size;
 	}
 
-	return FilterPoolSizes(poolSizes);
+	if (filter)
+	{
+		return FilterPoolSizes(poolSizes);
+	}
+	else
+	{
+		return poolSizes;
+	}
 }
 
 void DescriptorUtils::UpdateSets(HawkEye::HRendererData rendererData, const VulkanBackend::BackendData& backendData,
@@ -144,3 +152,4 @@ void DescriptorUtils::UpdateSets(HawkEye::HRendererData rendererData, const Vulk
 		k += (int32_t)bufferInfos.size();
 	}
 }
+*/

@@ -1,4 +1,5 @@
 #pragma once
+#include "FrameGraph/NodeStructs.hpp"
 #include <yaml-cpp/yaml.h>
 #include <vector>
 #include <string>
@@ -10,57 +11,35 @@ struct UniformData
 	int size;
 	VkDescriptorType type;
 	VkShaderStageFlags visibility;
+	bool deviceLocal;
 };
 
-enum class PipelineTarget
+struct VertexAttribute
 {
-	Color,
-	Depth,
-	Sample
-};
-
-struct PipelineUniforms
-{
-	std::vector<UniformData> uniforms;
-};
-
-struct PipelinePass
-{
-	int dimension;
-	bool inheritDepth = false;
-
+	int byteCount;
 	enum class Type
 	{
-		Undefined,
-		Computed,
-		Rasterized
-	} type = Type::Undefined;
-
-	enum class Shader
-	{
-		Vertex,
-		Fragment,
-		Compute
-	};
-	std::vector<std::pair<Shader, std::string>> shaders;
-
-	struct VertexAttribute
-	{
-		int byteCount;
-		enum class Type
-		{
-			Uint = 0,
-			Int = 1,
-			Float = 2
-		} type;
-	};
-	std::vector<VertexAttribute> attributes;
-	VkCullModeFlags cullMode;
-
-	std::vector<UniformData> material;
-	std::vector<UniformData> uniforms;
+		Uint = 0,
+		Int = 1,
+		Float = 2
+	} type;
 };
 
-PipelinePass ConfigureLayer(const YAML::Node& passNode);
-void ConfigureCommon(const YAML::Node& passNode, std::vector<PipelineTarget>& pipelineTargets, int& samples);
+enum class Shader
+{
+	Vertex,
+	Fragment,
+	Compute
+};
+
 void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uniformData);
+
+namespace FrameGraphConfigurator
+{
+	std::string GetName(const YAML::Node& nodeConfiguration);
+	std::vector<InputTargetCharacteristics> GetInputCharacteristics(const YAML::Node& nodeConfiguration);
+	OutputTargetCharacteristics GetOutputCharacteristics(const YAML::Node& nodeConfiguration);
+	std::vector<VertexAttribute> GetVertexAttributes(const YAML::Node& nodeConfiguration);
+	std::vector<std::pair<Shader, std::string>> GetShaders(const YAML::Node& nodeConfiguration);
+	VkCullModeFlags GetCullMode(const YAML::Node& nodeConfiguration);
+}

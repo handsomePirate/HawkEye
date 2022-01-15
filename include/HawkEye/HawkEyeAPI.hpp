@@ -33,7 +33,7 @@ namespace HawkEye
 		};
 		
 		// TODO: Layer.
-		void UseBuffers(DrawBuffer* drawBuffers, int bufferCount, int pass);
+		void UseBuffers(const std::string& nodeName, DrawBuffer* drawBuffers, int bufferCount);
 
 		void DrawFrame();
 		void Resize(int width, int height);
@@ -48,56 +48,42 @@ namespace HawkEye
 		uint64_t GetUUID() const;
 
 		template<typename MaterialType>
-		HMaterial CreateMaterial(MaterialType& material, int pass)
+		HMaterial CreateMaterial(const std::string& nodeName, MaterialType& material)
 		{
-			return CreateMaterialImpl(&material, sizeof(MaterialType), pass);
+			return CreateMaterialImpl(nodeName, &material, sizeof(MaterialType));
 		}
 
 		template<typename MaterialType>
-		HMaterial CreateMaterial(MaterialType&& material, int pass)
+		HMaterial CreateMaterial(const std::string& nodeName, MaterialType&& material)
 		{
-			return CreateMaterialImpl(&material, sizeof(MaterialType), pass);
+			return CreateMaterialImpl(nodeName, &material, sizeof(MaterialType));
 		}
 
 		// TODO: Delete material.
 
-		void SetUniform(const std::string& name, HTexture texture);
+		void SetUniform(const std::string& nodeName, const std::string& name, HTexture texture);
 
 		template<typename Type>
-		void SetUniform(const std::string& name, Type& data)
+		void SetUniform(const std::string& nodeName, const std::string& name, Type& data)
 		{
-			SetUniformImpl(name, &data, sizeof(Type));
+			SetUniformImpl(nodeName, name, &data, sizeof(Type));
 		}
 
 		template<typename Type>
-		void SetUniform(const std::string& name, Type&& data)
+		void SetUniform(const std::string& nodeName, const std::string& name, Type&& data)
 		{
-			SetUniformImpl(name, &data, sizeof(Type));
+			SetUniformImpl(nodeName, name, &data, sizeof(Type));
 		}
 
-		void SetUniform(const std::string& name, HTexture texture, int pass);
-
-		template<typename Type>
-		void SetUniform(const std::string& name, Type& data, int pass)
-		{
-			SetUniformImpl(name, &data, sizeof(Type), pass);
-		}
-
-		template<typename Type>
-		void SetUniform(const std::string& name, Type&& data, int pass)
-		{
-			SetUniformImpl(name, &data, sizeof(Type), pass);
-		}
-
-		void SetStorage(const std::string& name, HBuffer storageBuffer, int pass);
+		void SetUniform(const std::string& nodeName, const std::string& name, HBuffer buffer);
 
 		struct Private;
 		Private* p_;
 
 	private:
-		void SetUniformImpl(const std::string& name, void* data, int dataSize);
-		void SetUniformImpl(const std::string& name, void* data, int dataSize, int pass);
-		HMaterial CreateMaterialImpl(void* data, int dataSize, int pass);
+		void SetUniformImpl(const std::string& nodeName, const std::string& name, void* data, int dataSize);
+		HMaterial CreateMaterialImpl(const std::string& nodeName, void* data, int dataSize);
+		void UpdateUniforms(int frameInFlight);
 	};
 
 	// ======================== Textures =======================

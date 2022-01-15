@@ -1,10 +1,10 @@
 #include "Framebuffer.hpp"
 
 Target FramebufferUtils::CreateColorTarget(const VulkanBackend::BackendData& backendData,
-	const VulkanBackend::SurfaceData& surfaceData, bool retargetSource)
+	const VulkanBackend::SurfaceData& surfaceData, VkFormat targetFormat, bool retargetSource)
 {
 	Target target;
-	// TODO: Target format.
+	targetFormat = (targetFormat != VK_FORMAT_UNDEFINED) ? targetFormat : surfaceData.surfaceFormat.format;
 	target.image = VulkanBackend::CreateImage2D(backendData, surfaceData.width, surfaceData.height, 1, 1,
 		VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | (retargetSource ? VK_IMAGE_USAGE_STORAGE_BIT : 0),
 		surfaceData.surfaceFormat.format, VMA_MEMORY_USAGE_GPU_ONLY);
@@ -23,9 +23,10 @@ Target FramebufferUtils::CreateColorTarget(const VulkanBackend::BackendData& bac
 }
 
 Target FramebufferUtils::CreateDepthTarget(const VulkanBackend::BackendData& backendData,
-	const VulkanBackend::SurfaceData& surfaceData)
+	const VulkanBackend::SurfaceData& surfaceData, VkFormat targetFormat)
 {
 	Target target;
+	targetFormat = (targetFormat != VK_FORMAT_UNDEFINED) ? targetFormat : surfaceData.depthFormat;
 	target.image = VulkanBackend::CreateImage2D(backendData, surfaceData.width, surfaceData.height, 1, 1,
 		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT /*| VK_IMAGE_USAGE TRANSFER_SRC_BIT*/,
 		surfaceData.depthFormat, VMA_MEMORY_USAGE_GPU_ONLY);

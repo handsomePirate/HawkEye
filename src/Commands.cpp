@@ -1,4 +1,5 @@
 #include "Commands.hpp"
+/*
 #include "Resources.hpp"
 #include <VulkanBackend/ErrorCheck.hpp>
 
@@ -235,3 +236,4 @@ void CommandUtils::Record(int c, const VulkanBackend::BackendData& backendData, 
 
 	pipelineData->frameData[c].dirty = false;
 }
+*/

@@ -2,239 +2,6 @@
 #include <VulkanBackend/Logger.hpp>
 #include <regex>
 
-PipelinePass ConfigureLayer(const YAML::Node& passNode)
-{
-	PipelinePass pass{};
-
-	if (!passNode["type"])
-	{
-		CoreLogError(VulkanLogger, "Pipeline pass: type was not defined.");
-		return pass;
-	}
-
-	if (!passNode["dim"])
-	{
-		CoreLogError(VulkanLogger, "Pipeline pass: dimension not specified (provide dim).");
-		return pass;
-	}
-	else
-	{
-		pass.dimension = passNode["dim"].as<int>();
-		if (pass.dimension != 2 && pass.dimension != 3)
-		{
-			CoreLogError(VulkanLogger, "Pipeline pass: wrong dimension parameter - must be 2 or 3.");
-			return pass;
-		}
-	}
-
-	if (passNode["inherit"])
-	{
-		if (passNode["inherit"]["depth"])
-		{
-			pass.inheritDepth = passNode["inherit"]["depth"].as<bool>();
-		}
-	}
-
-	std::string type = passNode["type"].as<std::string>();
-
-	if (type == "computed")
-	{
-		pass.type = PipelinePass::Type::Computed;
-	}
-	else if (type == "rasterized")
-	{
-		pass.type = PipelinePass::Type::Rasterized;
-	}
-	else
-	{
-		CoreLogError(VulkanLogger, "Pipeline pass: Undefined pass type - %s.", type);
-		return pass;
-	}
-
-	if (passNode["shaders"])
-	{
-		if (pass.type == PipelinePass::Type::Rasterized)
-		{
-			// TODO: Make sure there is two shaders - one vertex and one fragment.
-			if (passNode["shaders"]["vertex"])
-			{
-				pass.shaders.emplace_back(PipelinePass::Shader::Vertex, passNode["shaders"]["vertex"].as<std::string>());
-			}
-			else
-			{
-				CoreLogError(VulkanLogger, "Pipeline pass: Vertex shader missing in a rasterized pass.");
-			}
-			if (passNode["shaders"]["fragment"])
-			{
-				pass.shaders.emplace_back(PipelinePass::Shader::Fragment, passNode["shaders"]["fragment"].as<std::string>());
-			}
-			else
-			{
-				CoreLogError(VulkanLogger, "Pipeline pass: Fragment shader missing in a rasterized pass.");
-			}
-		}
-		else
-		{
-			// TODO: Make sure there is only one shader.
-			if (passNode["shaders"]["compute"])
-			{
-				pass.shaders.emplace_back(PipelinePass::Shader::Compute, passNode["shaders"]["compute"].as<std::string>());
-			}
-			else
-			{
-				CoreLogError(VulkanLogger,
-					"Pipeline pass: A computed pass should have a compute shader, other shader types ignored.");
-			}
-		}
-	}
-
-	if (passNode["vertex attributes"])
-	{
-		for (int a = 0; a < passNode["vertex attributes"].size(); ++a)
-		{
-			std::string attributeString = passNode["vertex attributes"][a].as<std::string>();
-			int byteCount;
-			PipelinePass::VertexAttribute::Type type;
-			std::regex vecRegex("vec[2-4]");
-			std::regex ivecRegex("ivec[2-4]");
-			std::regex uvecRegex("uvec[2-4]");
-			bool isWellFormed = false;
-			bool isVector = false;
-			if (std::regex_match(attributeString, vecRegex) || attributeString == "float")
-			{
-				type = PipelinePass::VertexAttribute::Type::Float;
-				isWellFormed = true;
-				isVector = attributeString != "float";
-			}
-			else if (std::regex_match(attributeString, ivecRegex) || attributeString == "int")
-			{
-				type = PipelinePass::VertexAttribute::Type::Int;
-				isWellFormed = true;
-				isVector = attributeString != "int";
-			}
-			else if (std::regex_match(attributeString, uvecRegex) || attributeString == "uint")
-			{
-				type = PipelinePass::VertexAttribute::Type::Uint;
-				isWellFormed = true;
-				isVector = attributeString != "uint";
-			}
-
-			if (!isWellFormed)
-			{
-				CoreLogWarn(VulkanLogger, "Pipeline pass: Vertex attributes not well formed (can be [ui]?vec[2-4]).");
-				continue;
-			}
-
-			if (isVector)
-			{
-				std::string numberString = &attributeString[attributeString.length() - 1];
-				byteCount = std::stoi(numberString) * 4;
-			}
-			else
-			{
-				byteCount = 4;
-			}
-
-			pass.attributes.push_back({ byteCount, type });
-		}
-	}
-	else
-	{
-		if (pass.type == PipelinePass::Type::Rasterized)
-		{
-			CoreLogWarn(VulkanLogger, "Pipeline pass: Vertex attributes not defined, vec3 assumed (position).");
-			pass.attributes.push_back({ 12, PipelinePass::VertexAttribute::Type::Float });
-		}
-	}
-
-	if (passNode["cull"])
-	{
-		std::string cullMode = passNode["cull"].as<std::string>();
-		if (cullMode == "back")
-		{
-			pass.cullMode = VK_CULL_MODE_BACK_BIT;
-		}
-		else if (cullMode == "front")
-		{
-			pass.cullMode = VK_CULL_MODE_FRONT_BIT;
-		}
-		else
-		{
-			pass.cullMode = VK_CULL_MODE_NONE;
-			CoreLogWarn(VulkanLogger, "Pipeline pass: Wrong cull mode format - no culling used.");
-		}
-	}
-	else
-	{
-		pass.cullMode = VK_CULL_MODE_NONE;
-	}
-
-	ConfigureUniforms(passNode["material"], pass.material);
-	PipelineUniforms data;
-	if (pass.dimension == 3)
-	{
-		pass.uniforms.push_back(
-			{
-				"camera", (/*bytes*/4 * /*width*/4 * /*height*/4),
-				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL
-			});
-	}
-	else // pass.dimension == 2
-	{
-		pass.uniforms.push_back(
-		{
-			"camera", (/*bytes*/4 * /*width*/3 * /*height*/3),
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL
-		});
-	}
-	ConfigureUniforms(passNode["uniforms"], pass.uniforms);
-
-	return pass;
-}
-
-void ConfigureCommon(const YAML::Node& passNode, std::vector<PipelineTarget>& pipelineTargets, int& samples)
-{
-	if (passNode["samples"])
-	{
-		samples = passNode["samples"].as<int>();
-	}
-	else
-	{
-		CoreLogWarn(VulkanLogger, "Pipeline: Sample count not defined, 1 assumed.");
-		samples = 1;
-	}
-
-	if (passNode["targets"])
-	{
-		for (int p = 0; p < passNode["targets"].size(); ++p)
-		{
-			std::string targets = passNode["targets"][p].as<std::string>();
-
-			if (targets == "color")
-			{
-				pipelineTargets.push_back(PipelineTarget::Color);
-			}
-			else if (targets == "depth")
-			{
-				pipelineTargets.push_back(PipelineTarget::Depth);
-			}
-			else if (targets == "sample")
-			{
-				pipelineTargets.push_back(PipelineTarget::Sample);
-			}
-			else
-			{
-				CoreLogWarn(VulkanLogger, "Pipeline pass: Undefined target type - %s.", targets);
-			}
-		}
-	}
-	else
-	{
-		CoreLogWarn(VulkanLogger, "Pipeline pass: No targets defined, color assumed.");
-		pipelineTargets.push_back(PipelineTarget::Color);
-	}
-}
-
 void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uniformData)
 {
 	if (passNode)
@@ -315,7 +82,7 @@ void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uni
 				}
 			}
 
-			int size = 0;
+			int size = sizeof(void*);
 			if (type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER && passNode[u]["size"])
 			{
 				CoreLogWarn(VulkanLogger, "Pipeline uniforms: Size is irrelevant for texture uniforms - skipping.");
@@ -328,7 +95,7 @@ void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uni
 			{
 				if (!passNode[u]["size"])
 				{
-					CoreLogError(VulkanLogger, "Pipeline uniforms: Missing uniform size - skipping.");
+					CoreLogWarn(VulkanLogger, "Pipeline uniforms: Missing uniform size - skipping.");
 					continue;
 				}
 				else
@@ -339,6 +106,27 @@ void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uni
 
 			std::string name = passNode[u]["name"].as<std::string>();
 
+			bool deviceLocal = false;
+			if (passNode["residency"])
+			{
+				if (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+				{
+					std::string residency = passNode["residency"].as<std::string>();
+					if (residency == "gpu")
+					{
+						deviceLocal = true;
+					}
+					else if (residency != "cpu")
+					{
+						CoreLogError(VulkanLogger, "Pipeline uniforms: Incorrect residency parameter - defaulting to cpu.");
+					}
+				}
+				else
+				{
+					CoreLogWarn(VulkanLogger, "Pipeline uniforms: Specifying residency for descriptor of a different type than uniform - skipping.");
+				}
+			}
+
 			if (name[0] == '_')
 			{
 				CoreLogError(VulkanLogger, "Pipeline uniforms: Name may not start with \'_\' - skipping.");
@@ -347,8 +135,408 @@ void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uni
 			uniformData.push_back(
 				{
 					name,
-					size, type, visibility
+					size, type, visibility,
+					deviceLocal
 				});
 		}
 	}
+}
+
+std::string FrameGraphConfigurator::GetName(const YAML::Node& nodeConfiguration)
+{
+	if (nodeConfiguration)
+	{
+		// TODO: Make sure the name is unique.
+		return nodeConfiguration.as<std::string>();
+	}
+
+	CoreLogFatal(VulkanLogger, "Configuration: Node name not specified.");
+	return "";
+}
+
+VkFormat GetFormat(const YAML::Node& nodeConfiguration)
+{
+	static std::map<std::string, int> typeOffset8
+	{
+		{"unorm", 0},
+		{"snorm", 1},
+		{"uscaled", 2},
+		{"sscaled", 3},
+		{"uint", 4},
+		{"sint", 5},
+	};
+	static int typeOffset8Size = (int)typeOffset8.size();
+	static std::map<std::string, int> typeOffset16
+	{
+		{"unorm", 0},
+		{"snorm", 1},
+		{"uscaled", 2},
+		{"sscaled", 3},
+		{"uint", 4},
+		{"sint", 5},
+		{"sfloat", 6},
+	};
+	static int typeOffset16Size = (int)typeOffset16.size();
+	static std::map<std::string, int> typeOffset32
+	{
+		{"uint", 0},
+		{"sint", 1},
+		{"sfloat", 2},
+	};
+	static int typeOffset32Size = (int)typeOffset32.size();
+
+	static std::map<int, int> bitDepthStart
+	{
+		{8, (int)VK_FORMAT_R8_UNORM},
+		{16, (int)VK_FORMAT_R16_UNORM},
+		{32, (int)VK_FORMAT_R32_UINT},
+	};
+
+	if (nodeConfiguration)
+	{
+		if (!nodeConfiguration["bit-depth"])
+		{
+			std::string defaultString = nodeConfiguration.as<std::string>();
+			if (defaultString == "default")
+			{
+				return VK_FORMAT_UNDEFINED;
+			}
+			else
+			{
+				CoreLogError(VulkanLogger, "Configuration: Format incorrectly specified.");
+				return VK_FORMAT_UNDEFINED;
+			}
+		}
+		int bitDepth = nodeConfiguration["bit-depth"].as<int>();
+		int channelCount = nodeConfiguration["channel-count"].as<int>();
+		std::string type = nodeConfiguration["type"].as<std::string>();
+
+		auto bitDepthIt = bitDepthStart.find(bitDepth);
+		if (bitDepthIt == bitDepthStart.end())
+		{
+			CoreLogError(VulkanLogger, "Configuration: Format incorrectly specified - \'bit-depth\' must be 8, 16, or 32.");
+			return VK_FORMAT_UNDEFINED;
+		}
+		int formatOffset = bitDepthIt->second;
+		int typeOffsetSize;
+		if (bitDepth == 8)
+		{
+			auto typeOffsetIt = typeOffset8.find(type);
+			if (typeOffsetIt == typeOffset8.end())
+			{
+				CoreLogError(VulkanLogger,
+					"Configuration: Format incorrectly specified - \'type\' must be %s, %s, %s, %s, %s, or %s for \'bit-depth\' of 8.",
+					"unorm", "snorm", "uscaled", "sscaled", "uint", "sint");
+				return VK_FORMAT_UNDEFINED;
+			}
+			formatOffset += typeOffsetIt->second;
+			typeOffsetSize = typeOffset8Size;
+		}
+		else if (bitDepth == 16)
+		{
+			auto typeOffsetIt = typeOffset16.find(type);
+			if (typeOffsetIt == typeOffset16.end())
+			{
+				CoreLogError(VulkanLogger,
+					"Configuration: Format incorrectly specified - \'type\' must be %s, %s, %s, %s, %s, %s, or %s for \'bit-depth\' of 16.",
+					"unorm", "snorm", "uscaled", "sscaled", "uint", "sint", "sfloat");
+				return VK_FORMAT_UNDEFINED;
+			}
+			formatOffset += typeOffsetIt->second;
+			typeOffsetSize = typeOffset16Size;
+		}
+		else // bitDepth == 32
+		{
+			auto typeOffsetIt = typeOffset32.find(type);
+			if (typeOffsetIt == typeOffset32.end())
+			{
+				CoreLogError(VulkanLogger,
+					"Configuration: Format incorrectly specified - \'type\' must be %s, %s, or %s for \'bit-depth\' of 32.",
+					"uint", "sint", "sfloat");
+				return VK_FORMAT_UNDEFINED;
+			}
+			formatOffset += typeOffsetIt->second;
+			typeOffsetSize = typeOffset32Size;
+		}
+
+		if (channelCount < 1 || channelCount > 4)
+		{
+			CoreLogError(VulkanLogger, "Configuration: Format incorrectly specified - \'channel-count\' must be >= 1 and <= 4.");
+			return VK_FORMAT_UNDEFINED;
+		}
+
+		formatOffset += channelCount * typeOffsetSize;
+
+		return (VkFormat)formatOffset;
+	}
+
+	CoreLogError(VulkanLogger, "Configuration: Format not specified.");
+	return VK_FORMAT_UNDEFINED;
+}
+
+std::unique_ptr<OutputImageCharacteristics> GetOutputImageCharacteristics(const YAML::Node& nodeConfiguration)
+{
+	// width modifier
+	float widthModifier = 1.f;
+	if (nodeConfiguration["width-modifier"])
+	{
+		widthModifier = nodeConfiguration["width-modifier"].as<float>();
+	}
+	// height modifier
+	float heightModifier = 1.f;
+	if (nodeConfiguration["height-modifier"])
+	{
+		heightModifier = nodeConfiguration["height-modifier"].as<float>();
+	}
+	// format
+	VkFormat format = GetFormat(nodeConfiguration["format"]);
+	// read/write.
+	bool read = true;
+	bool write = true;
+	if (nodeConfiguration["access"])
+	{
+		std::string access = nodeConfiguration["access"].as<std::string>();
+		if (access == "r")
+		{
+			read = true;
+			write = false;
+		}
+		else if (access == "w")
+		{
+			write = true;
+			read = false;
+		}
+		else if (access != "rw" && access != "wr")
+		{
+			CoreLogFatal(VulkanLogger, "Configuration: Incorrect output access format - \'r\', \'w\', \'rw\', or \'wr\' supported.");
+			return nullptr;
+		}
+	}
+	else
+	{
+		CoreLogFatal(VulkanLogger, "Configuration: Node output access not specified.");
+		return nullptr;
+	}
+
+
+	return std::make_unique<OutputImageCharacteristics>(
+		OutputImageCharacteristics{ widthModifier, heightModifier, format, read, write });
+}
+
+std::unique_ptr<InputImageCharacteristics> GetInputImageCharacteristics(const YAML::Node& nodeConfiguration)
+{
+	// width modifier
+	float widthModifier = 1.f;
+	if (nodeConfiguration["width-modifier"])
+	{
+		widthModifier = nodeConfiguration["width-modifier"].as<float>();
+	}
+	// height modifier
+	float heightModifier = 1.f;
+	if (nodeConfiguration["height-modifier"])
+	{
+		heightModifier = nodeConfiguration["height-modifier"].as<float>();
+	}
+	// format
+	VkFormat format = GetFormat(nodeConfiguration["format"]);
+
+	// connection name
+	std::string connectionName = "";
+	if (nodeConfiguration["connection-name"])
+	{
+		// TODO: Make sure this name exists in the graph.
+		connectionName = nodeConfiguration["connection-name"].as<std::string>();
+	}
+	// connection slot
+	int connectionSlot = -1;
+	if (nodeConfiguration["connection-slot"])
+	{
+		// TODO: Make sure this slot exists in the node.
+		connectionName = nodeConfiguration["connection-slot"].as<int>();
+	}
+	// content operation
+	ContentOperation contentOperation = ContentOperation::DontCare;
+	if (nodeConfiguration["content-operation"])
+	{
+		std::string contentOperationString = nodeConfiguration["content-operation"].as<std::string>();
+		if (contentOperationString == "clear")
+		{
+			contentOperation = ContentOperation::Clear;
+		}
+		else if (contentOperationString == "preserve")
+		{
+			contentOperation = ContentOperation::Preserve;
+		}
+		else if (contentOperationString != "dontcare")
+		{
+			CoreLogError(VulkanLogger, "Configuration: Input image operation incorrectly specified - must be \'clear\', \'preserve\', or \'dontcare\'.");
+		}
+	}
+
+	return std::make_unique<InputImageCharacteristics>(
+		InputImageCharacteristics{ widthModifier, heightModifier, format, connectionName, connectionSlot });
+}
+
+std::vector<InputTargetCharacteristics> FrameGraphConfigurator::GetInputCharacteristics(const YAML::Node& nodeConfiguration)
+{
+	std::vector<InputTargetCharacteristics> result;
+	if (nodeConfiguration)
+	{
+		for (int c = 0; c < nodeConfiguration.size(); ++c)
+		{
+			InputTargetCharacteristics targetCharacteristics{};
+			if (nodeConfiguration[c]["color"])
+			{
+				targetCharacteristics.colorTarget = GetInputImageCharacteristics(nodeConfiguration[c]["color"]);
+			}
+			if (nodeConfiguration[c]["depth"])
+			{
+				// TODO: Have default format?
+				targetCharacteristics.depthTarget = GetInputImageCharacteristics(nodeConfiguration[c]["depth"]);
+			}
+			if (nodeConfiguration[c]["sample"])
+			{
+				targetCharacteristics.sampleTarget = GetInputImageCharacteristics(nodeConfiguration[c]["sample"]);
+			}
+			result.push_back(std::move(targetCharacteristics));
+		}
+		return std::move(result);
+	}
+
+	CoreLogFatal(VulkanLogger, "Configuration: Node inputs not specified.");
+	return {};
+}
+
+OutputTargetCharacteristics FrameGraphConfigurator::GetOutputCharacteristics(const YAML::Node& nodeConfiguration)
+{
+	OutputTargetCharacteristics result{};
+	if (nodeConfiguration)
+	{
+		if (nodeConfiguration["color"])
+		{
+			result.colorTarget = GetOutputImageCharacteristics(nodeConfiguration["color"]);
+		}
+		if (nodeConfiguration["depth"])
+		{
+			// TODO: Have default format?
+			result.depthTarget = GetOutputImageCharacteristics(nodeConfiguration["depth"]);
+		}
+		if (nodeConfiguration["sample"])
+		{
+			result.sampleTarget = GetOutputImageCharacteristics(nodeConfiguration["sample"]);
+		}
+		return result;
+	}
+
+	CoreLogFatal(VulkanLogger, "Configuration: Node output not specified.");
+	return result;
+}
+
+std::vector<VertexAttribute> FrameGraphConfigurator::GetVertexAttributes(const YAML::Node& nodeConfiguration)
+{
+	std::vector<VertexAttribute> result;
+	if (nodeConfiguration)
+	{
+		for (int a = 0; a < nodeConfiguration.size(); ++a)
+		{
+			std::string attributeString = nodeConfiguration[a].as<std::string>();
+			int byteCount;
+			VertexAttribute::Type type;
+			std::regex vecRegex("vec[2-4]");
+			std::regex ivecRegex("ivec[2-4]");
+			std::regex uvecRegex("uvec[2-4]");
+			bool isWellFormed = false;
+			bool isVector = false;
+			if (std::regex_match(attributeString, vecRegex) || attributeString == "float")
+			{
+				type = VertexAttribute::Type::Float;
+				isWellFormed = true;
+				isVector = attributeString != "float";
+			}
+			else if (std::regex_match(attributeString, ivecRegex) || attributeString == "int")
+			{
+				type = VertexAttribute::Type::Int;
+				isWellFormed = true;
+				isVector = attributeString != "int";
+			}
+			else if (std::regex_match(attributeString, uvecRegex) || attributeString == "uint")
+			{
+				type = VertexAttribute::Type::Uint;
+				isWellFormed = true;
+				isVector = attributeString != "uint";
+			}
+
+			if (!isWellFormed)
+			{
+				CoreLogWarn(VulkanLogger, "Pipeline pass: Vertex attributes not well formed (can be [ui]?vec[2-4]).");
+				continue;
+			}
+
+			if (isVector)
+			{
+				std::string numberString = &attributeString[attributeString.length() - 1];
+				byteCount = std::stoi(numberString) * 4;
+			}
+			else
+			{
+				byteCount = 4;
+			}
+
+			result.push_back({ byteCount, type });
+		}
+		return result;
+	}
+
+	CoreLogFatal(VulkanLogger, "Configuration: Vertex attributes not specified.");
+	return result;
+}
+
+std::vector<std::pair<Shader, std::string>> FrameGraphConfigurator::GetShaders(const YAML::Node& nodeConfiguration)
+{
+	std::vector<std::pair<Shader, std::string>> result;
+	if (nodeConfiguration)
+	{
+		if (nodeConfiguration["vertex"])
+		{
+			result.emplace_back(Shader::Vertex, nodeConfiguration["vertex"].as<std::string>());
+		}
+		if (nodeConfiguration["fragment"])
+		{
+			result.emplace_back(Shader::Fragment, nodeConfiguration["fragment"].as<std::string>());
+		}
+		if (nodeConfiguration["compute"])
+		{
+			result.emplace_back(Shader::Compute, nodeConfiguration["compute"].as<std::string>());
+		}
+		return result;
+	}
+
+	CoreLogFatal(VulkanLogger, "Configuration: Shaders not specified.");
+	return result;
+}
+
+VkCullModeFlags FrameGraphConfigurator::GetCullMode(const YAML::Node& nodeConfiguration)
+{
+	if (nodeConfiguration)
+	{
+		std::string cullMode = nodeConfiguration.as<std::string>();
+		if (cullMode == "back")
+		{
+			return VK_CULL_MODE_BACK_BIT;
+		}
+		else if (cullMode == "front")
+		{
+			return VK_CULL_MODE_FRONT_BIT;
+		}
+		else
+		{
+			if (cullMode != "none")
+			{
+				CoreLogError(VulkanLogger, "Pipeline pass: Wrong cull mode format - none assumed.");
+			}
+			return VK_CULL_MODE_NONE;
+		}
+	}
+	
+	return VK_CULL_MODE_NONE;
 }
