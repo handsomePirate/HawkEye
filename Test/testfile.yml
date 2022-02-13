@@ -1,56 +1,107 @@
 # Hawk Eye pipeline configuration.
 
-Pipeline:
-    samples: 1
+nodes:
+  -
+    type: computed
+    name: generativeNode
+    input:
+    output:
+        color:
+            access: w
+            format: color-optimal
+    shaders:
+        compute: ../../src/shaders/test.comp.glsl
     uniforms:
-    targets:
-      - color
-      - depth
-    # - sample
-    passes:
       -
-        type: computed
-        dim: 3
-        shaders:
-            compute: ../../src/shaders/voxel-viewer.comp.glsl
-        # TODO: Make pre-allocated and not pre-allocated.
-        uniforms:
-          -
-            name: test
-            type: storage
-#      -
-#        type: rasterized
-#        dim: 3
-#        shaders:
-#            vertex: ../../src/shaders/test.vert.glsl
-#            fragment: ../../src/shaders/test.frag.glsl
-#        uniforms:
-#        material:
-#        -
-#            name: color
-#            type: uniform
-#            size: 12
-#        vertex attributes:
-#            # position
-#        - vec3
-#            # normal
-#        - vec3
-#            # color
-#        # - vec3
-#            # uv
-#        - vec2
-#      -
-#        type: computed
-#        dim: 2
-#        shaders:
-#            compute: ../../src/shaders/blur.comp.glsl
-#      -
-#        type: computed
-#        dim: 2
-#        shaders:
-#            compute: ../../src/shaders/edge.comp.glsl
-#      -
-#        type: computed
-#        dim: 2
-#        shaders:
-#            compute: ../../src/shaders/inverse.comp.glsl
+        name: time
+        type: uniform
+        size: 32
+  -
+    type: rasterized
+    name: rasterizedNode
+    input:
+      -
+        color:
+            connection-name: generativeNode
+            connection-slot: 0
+            content-operation: preserve
+            format: color-optimal
+    output:
+        color:
+            access: w
+            format: color-optimal
+        depth:
+            access: w
+            format: depth-optimal
+    shaders:
+        vertex: ../../src/shaders/test.vert.glsl
+        fragment: ../../src/shaders/test.frag.glsl
+    uniforms:
+      -
+        name: camera
+        type: uniform
+        size: 64
+    material:
+      -
+        name: color
+        type: uniform
+        size: 12
+    vertex-attributes:
+        # position
+      - vec3
+        # normal
+      - vec3
+        # color
+    # - vec3
+        # uv
+      - vec2
+    cull-mode: front
+  -
+    type: computed
+    name: blurNode
+    input:
+      -
+        color:
+            connection-name: rasterizedNode
+            connection-slot: 0
+            content-operation: preserve
+            format: color-optimal
+    output:
+        color:
+            access: rw
+            format: color-optimal
+    shaders:
+        compute: ../../src/shaders/blur.comp.glsl
+  -
+    type: computed
+    name: edgeDetectNode
+    input:
+      -
+        color:
+            connection-name: blurNode
+            connection-slot: 0
+            content-operation: preserve
+            format: color-optimal
+    output:
+        color:
+            access: rw
+            format: color-optimal
+    shaders:
+        compute: ../../src/shaders/edge.comp.glsl
+  -
+    type: computed
+    name: inverseNode
+    final: true
+    input:
+      -
+        color:
+            connection-name: edgeDetectNode
+            connection-slot: 0
+            content-operation: preserve
+            format: color-optimal
+    output:
+        color:
+            access: rw
+            format: color-optimal
+    shaders:
+        compute: ../../src/shaders/inverse.comp.glsl

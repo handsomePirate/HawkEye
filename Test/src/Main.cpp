@@ -10,6 +10,7 @@
 #include <chrono>
 #include <future>
 #include <iostream>
+#include <thread>
 
 const int windowWidth = 720;
 const int windowHeight = 480;
@@ -71,10 +72,10 @@ void PrintWin32(const char* message, Core::LoggerSeverity severity)
 
 void Render()
 {
-	if (renderingPipeline1.Configured())
-	{
-		renderingPipeline1.DrawFrame();
-	}
+	//if (renderingPipeline1.Configured())
+	//{
+	//	renderingPipeline1.DrawFrame();
+	//}
 }
 
 void Resize(int width, int height)
@@ -87,7 +88,7 @@ void Resize(int width, int height)
 	if (renderingPipeline1.Configured())
 	{
 		Eigen::Matrix4f viewProjectionMatrix = camera1.GetProjectionMatrix() * camera1.GetViewMatrix();
-		//renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 1);
+		renderingPipeline1.SetUniform("rasterizedNode", "camera", viewProjectionMatrix);
 		renderingPipeline1.Resize(width, height);
 	}
 }
@@ -205,7 +206,7 @@ void HandleInput(float timeDelta)
 	if (renderingPipeline->Configured())
 	{
 		Eigen::Matrix4f viewProjectionMatrix = camera->GetProjectionMatrix() * camera->GetViewMatrix();
-		//renderingPipeline->SetUniform("camera", viewProjectionMatrix, 1);
+		renderingPipeline->SetUniform("rasterizedNode", "camera", viewProjectionMatrix);
 	}
 
 	lastMouseX = mouseX;
@@ -214,7 +215,7 @@ void HandleInput(float timeDelta)
 
 int main(int argc, char* argv[])
 {
-	try
+	//try
 	{
 		// Filesystem.
 
@@ -339,14 +340,14 @@ int main(int argc, char* argv[])
 		};
 		//TextureMaterial materialData1{ textures[0] };
 		ColorMaterial materialData1{ 1, 0, 0 };
-		HawkEye::HMaterial material1 = renderingPipeline1.CreateMaterial(materialData1, 1);
+		HawkEye::HMaterial material1 = renderingPipeline1.CreateMaterial("rasterizedNode", materialData1);
 #ifdef SECOND_WINDOW
 		HawkEye::HMaterial material21 = renderingPipeline2.CreateMaterial(materialData1, 1);
 #endif
 
 		//TextureMaterial materialData2{ myTexture };
 		ColorMaterial materialData2{ 0, 0, 1 };
-		HawkEye::HMaterial material2 = renderingPipeline1.CreateMaterial(materialData2, 1);
+		HawkEye::HMaterial material2 = renderingPipeline1.CreateMaterial("rasterizedNode", materialData2);
 
 		HawkEye::HBuffer vertexBuffer0;
 		HawkEye::HBuffer vertexBuffer1;
@@ -377,14 +378,9 @@ int main(int argc, char* argv[])
 		drawBuffers[1].material = material2;
 		drawBuffers[1].instanceBuffer = instanceBuffer;
 
-		Eigen::Vector4f testColor{ 1, 1, 1, 1 };
-		HawkEye::HBuffer storageBuffer = HawkEye::UploadBuffer(rendererData, &testColor, 4 * sizeof(float), HawkEye::BufferUsage::Storage,
-			HawkEye::BufferType::DeviceLocal);
-
-		renderingPipeline1.UseBuffers(drawBuffers, drawBufferCount, 1);
-		renderingPipeline1.SetStorage("test", storageBuffer, 0);
+		renderingPipeline1.UseBuffers("rasterizedNode", drawBuffers, drawBufferCount);
 		Eigen::Matrix4f viewProjectionMatrix = camera1.GetProjectionMatrix() * camera1.GetViewMatrix();
-		//renderingPipeline1.SetUniform("camera", viewProjectionMatrix, 1);
+		renderingPipeline1.SetUniform("rasterizedNode", "camera", viewProjectionMatrix);
 		
 #ifdef SECOND_WINDOW
 		renderingPipeline2.UseBuffers(drawBuffers, 1, 1);
@@ -394,8 +390,11 @@ int main(int argc, char* argv[])
 
 		// Rendering loop.
 
+		const float targetTimeDelta = 1 / 60.f * 1000.f;
 		float timeDelta = 1;
 		auto before = std::chrono::high_resolution_clock::now();
+		unsigned int currentTime = unsigned int(std::chrono::duration_cast<std::chrono::milliseconds>(before.time_since_epoch()).count());
+		renderingPipeline1.SetUniform("generativeNode", "time", currentTime);
 #ifdef SECOND_WINDOW
 		while (!testWindow1->ShouldClose() && !testWindow2->ShouldClose())
 #else
@@ -413,6 +412,14 @@ int main(int argc, char* argv[])
 			timeDelta = std::chrono::duration<float, std::milli>(now - before).count();
 			before = std::chrono::high_resolution_clock::now();
 			HandleInput(timeDelta);
+			unsigned int currentTime = unsigned int(std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count());
+			renderingPipeline1.SetUniform("generativeNode", "time", currentTime);
+			
+			// Stabilizing frame rate.
+			if (timeDelta < targetTimeDelta)
+			{
+				std::this_thread::sleep_for(std::chrono::milliseconds(int(targetTimeDelta - timeDelta)));
+			}
 		}
 
 		// Releasing of resources.
@@ -426,8 +433,6 @@ int main(int argc, char* argv[])
 		HawkEye::DeleteBuffer(rendererData, vertexBuffer1);
 		HawkEye::DeleteBuffer(rendererData, indexBuffer);
 		HawkEye::DeleteBuffer(rendererData, instanceBuffer);
-
-		HawkEye::DeleteBuffer(rendererData, storageBuffer);
 
 		//for (int t = 0; t < textures.size(); ++t)
 		//{
@@ -447,10 +452,10 @@ int main(int argc, char* argv[])
 		delete testWindow2;
 #endif
 	}
-	catch (const std::exception& e)
-	{
-		std::cout << e.what() << std::endl;
-	}
+	//catch (const std::exception& e)
+	//{
+	//	std::cout << e.what() << std::endl;
+	//}
 
 	return 0;
 }

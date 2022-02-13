@@ -3,17 +3,12 @@
 
 layout(local_size_x = 16, local_size_y = 16) in;
 
-layout(set = 0, binding = 0) uniform Frame
+layout(binding = 0, rgba8) uniform writeonly image2D resultImage;
+
+layout(set = 1, binding = 0) uniform Frame
 {
 	uint time;
 } frame;
-
-layout(binding = 1, rgba8) uniform writeonly image2D resultImage;
-
-layout(set = 1, binding = 0) uniform Transform
-{
-	mat4 matrix;
-} transform;
 
 uvec2 pictureSize = (gl_NumWorkGroups * gl_WorkGroupSize).xy;
 uvec2 pixelCoords = gl_GlobalInvocationID.xy;
@@ -133,8 +128,8 @@ void main()
 
 	vec3 point = vec3(circle(points[4], pointModifier * 15.f));
 
-	vec3 lowColor = vec3(.1f, .1f, 0.f);
-	vec3 highColor = vec3(.5f, .4f, .6f);
+	vec3 lowColor = vec3(.1f, 0.f, 0.f);
+	vec3 highColor = vec3(.6f, .5f, .8f);
 	vec3 clampedColor = point + lines;
 	vec3 gradientColor = clamp(vec3(0.8f), vec3(0.2f), clampedColor) * mix(lowColor, highColor, clampedColor);
 

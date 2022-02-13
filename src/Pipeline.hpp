@@ -1,107 +1,64 @@
 #pragma once
 #include "HawkEye/HawkEyeAPI.hpp"
+#include "FrameGraph/FrameGraph.hpp"
 #include "YAMLConfiguration.hpp"
 #include "Framebuffer.hpp"
 #include <VulkanBackend/VulkanBackendAPI.hpp>
-#include <map>
+#include <queue>
 
-struct DescriptorData
+// TODO: Thread-safe queue
+struct PreallocatedUpdateData
 {
-	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-	VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+	std::string nodeName;
+	std::string name;
+	void* data;
+	int dataSize;
+
+	PreallocatedUpdateData(const std::string& nodeName, const std::string& name,
+		void* data, int dataSize)
+		: nodeName(nodeName), name(name), data(data), dataSize(dataSize) {}
+
+	~PreallocatedUpdateData()
+	{
+		free(data);
+	}
 };
 
-struct FrameData
+struct TextureUpdateData
 {
-	bool dirty = true;
-	bool toBeReleased = false;
-	VkCommandBuffer commandBuffer;
+	std::string nodeName;
+	std::string name;
+	HawkEye::HTexture texture;
+
+	TextureUpdateData(const std::string& nodeName, const std::string& name, HawkEye::HTexture texture)
+		: nodeName(nodeName), name(name), texture(texture) {}
 };
 
-enum class PhaseType
+struct BufferUpdateData
 {
-	UP,
-	UA,
-	GA,
-	GP
-};
+	std::string nodeName;
+	std::string name;
+	HawkEye::HBuffer buffer;
 
-struct PhaseData
-{
-	PhaseType type;
-	VkRenderPass renderPass;
-	std::vector<VkFramebuffer> framebuffers;
-	Target colorTarget;
-};
-
-struct PipelinePassData
-{
-	int dimension;
-	bool inheritDepth = false;
-	bool empty = true;
-	int colorTarget;
-	PipelinePass::Type type = PipelinePass::Type::Undefined;
-	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	std::vector<VkShaderModule> shaderModules;
-	VkPipeline computePipeline = VK_NULL_HANDLE;
-	VkPipeline rasterizationPipeline = VK_NULL_HANDLE;
-	int materialSize = 0;
-	std::vector<DescriptorData> materials;
-	std::vector<UniformData> materialData;
-	std::map<std::string, HawkEye::HBuffer> materialBuffers;
-	int vertexSize = 1;
-	std::map<int, std::vector<HawkEye::Pipeline::DrawBuffer>> drawBuffers;
-	std::vector<VkDescriptorSetLayout> descriptorSetLayouts;
-	std::vector<VkDescriptorSetLayout> passUniformLayouts;
-	std::map<std::string, int> storageBufferBindings;
-	std::map<std::string, HawkEye::HBuffer> uniformBuffers;
-	std::map<std::string, int> uniformTextureBindings;
-	std::map<std::string, HawkEye::HTexture> uniformTextures;
-	DescriptorData descriptorData;
-	std::vector<HawkEye::HBuffer> frameDecriptorBuffers;
-	std::vector<DescriptorData> frameDescriptors;
-	VkDescriptorSetLayout frameDescriptorLayout = VK_NULL_HANDLE;
+	BufferUpdateData(const std::string& nodeName, const std::string& name, HawkEye::HBuffer buffer)
+		: nodeName(nodeName), name(name), buffer(buffer) {}
 };
 
 struct HawkEye::Pipeline::Private
 {
-	int samples = 0;
 	bool configured = false;
-	bool hasDepthTarget = false;
-	bool containsComputedPass = false;
-	PipelineUniforms uniformInfo;
-	std::vector<PhaseData> phases;
-	VkSampler targetSampler = VK_NULL_HANDLE;
-	std::vector<PipelineTarget> pipelineTargets;
-	std::vector<Target> targets;
-	std::vector<PipelinePass> passes;
-	std::vector<PipelinePassData> passData;
-	VulkanBackend::BackendData* backendData = nullptr;
-	std::unique_ptr<VulkanBackend::SurfaceData> surfaceData = nullptr;
-	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-	std::vector<VkImage> swapchainImages;
-	std::vector<VkImageView> swapchainImageViews;
-	VkRenderPass renderPassUP = VK_NULL_HANDLE;
-	VkRenderPass renderPassUA = VK_NULL_HANDLE;
-	VkRenderPass renderPassGA = VK_NULL_HANDLE;
-	VkRenderPass renderPassGP = VK_NULL_HANDLE;
-	VkPipelineCache pipelineCache = VK_NULL_HANDLE;
-	VkQueue graphicsQueue = VK_NULL_HANDLE;
-	VkQueue computeQueue = VK_NULL_HANDLE;
+	CommonFrameData commonFrameData;
 	VkSemaphore graphicsSemaphore = VK_NULL_HANDLE;
 	VkSemaphore presentSemaphore = VK_NULL_HANDLE;
 	std::vector<VkFence> frameFences;
-	VkCommandPool commandPool = VK_NULL_HANDLE;
-	std::map<std::string, int> storageBufferBindings;
-	std::map<std::string, HBuffer> uniformBuffers;
-	std::map<std::string, int> uniformTextureBindings;
-	std::map<std::string, HTexture> uniformTextures;
-	DescriptorData descriptorData;
-	std::vector<FrameData> frameData;
-	uint64_t currentFrame = 0;
+	FrameGraph frameGraph;
+
+	std::vector<std::queue<std::shared_ptr<PreallocatedUpdateData>>> preallocatedUpdateData;
+	std::vector<std::queue<std::shared_ptr<TextureUpdateData>>> textureUpdateData;
+	std::vector<std::queue<std::shared_ptr<BufferUpdateData>>> bufferUpdateData;
 };
 
 namespace PipelineUtils
 {
-	VkFormat GetAttributeFormat(const PipelinePass::VertexAttribute& vertexAttribute);
+	VkFormat GetAttributeFormat(const VertexAttribute& vertexAttribute);
 }

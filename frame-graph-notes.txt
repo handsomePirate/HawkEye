@@ -1,0 +1,49 @@
+pipeline + cache + layout
+frame buffer
+descriptor set layouts
+descriptor set copy per frame in flight
+pre-allocated buffers
+pre-configured bindings for the rest of the descriptors
+vertex and index buffer reference
+targets - may need to be a chain - for example, bloom needs multiple dispatches
+inheriting info = inputs & outputs info (make sure format is right for images, otherwise transform to fit - outputter responsibility)
+data to update - needs to happen for each frame in flight
+	- the update at user level could be sync or async - sync means we block frames, async means data may not be destroyed until copied (unique ptr & inheritance?)
+
+per model data are handled via instancing
+
+secondary command buffers may be used somehow?
+
+render pass is a responsibility of the graph
+
+data pack api
+	GetBinding
+	GetDataPointer
+	GetDataSize
+
+graph api
+	Configure
+	Record - also determine if the layout is different because some passes are empty for recording
+		- do resource transitions
+		- do image transforms
+	UpdateData
+	- manages connections - graph structure
+
+node api
+	Configure - needs info about vertices and indices, inputs and outputs, additional data; shaders may be in shader manager?; NO BUILTINS like camera or time
+	Skip - bool
+	GetInputs - with formats and slots
+	GetOutputs - with formats and slots
+		- outputs and inputs can be either storage buffers or images
+	Record
+	UpdateData
+		- this is uniform buffers, storage buffers, images
+
+
+separate config - materials have ids
+
+material system
+	Upload
+
+
+2 descriptor types - material per pass (pre-uploaded), uniform per pass (internally per frame, some pre-allocated = mapped, some only bound)
