@@ -3,7 +3,7 @@
 nodes:
   -
     type: computed
-    name: mandelbrotNode
+    name: generativeNode
     input:
     output:
         color:
@@ -11,7 +11,12 @@ nodes:
         depth:
             access: r
     shaders:
-        compute: ../../src/shaders/mandelbrot.comp.glsl
+        compute: ../../src/shaders/test.comp.glsl
+    uniforms:
+      -
+        name: time
+        type: uniform
+        size: 32
   -
     type: rasterized
     name: rasterizedNode

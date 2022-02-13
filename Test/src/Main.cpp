@@ -408,6 +408,8 @@ int main(int argc, char* argv[])
 			timeDelta = std::chrono::duration<float, std::milli>(now - before).count();
 			before = std::chrono::high_resolution_clock::now();
 			HandleInput(timeDelta);
+			unsigned int currentTime = unsigned int(std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count());
+			renderingPipeline1.SetUniform("generativeNode", "time", currentTime);
 		}
 
 		// Releasing of resources.
