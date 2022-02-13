@@ -152,10 +152,17 @@ void ComputeNode::Configure(const YAML::Node& nodeConfiguration,
 	shaderModules.push_back(shaderStage.module);
 
 	pipeline = VulkanBackend::CreateComputePipeline(*backendData, pipelineLayout, shaderStage, commonFrameData.pipelineCache);
+
+	configured = true;
 }
 
 void ComputeNode::Shutdown(const CommonFrameData& commonFrameData)
 {
+	if (!configured)
+	{
+		return;
+	}
+
 	const VulkanBackend::BackendData& backendData = *commonFrameData.backendData;
 
 	VulkanBackend::DestroyPipeline(backendData, pipeline);
@@ -196,6 +203,12 @@ void ComputeNode::Shutdown(const CommonFrameData& commonFrameData)
 bool ComputeNode::Record(VkCommandBuffer commandBuffer, int frameInFlight, const CommonFrameData& commonFrameData,
 	bool startRenderPass, bool endRenderPass)
 {
+	if (!configured)
+	{
+		CoreLogWarn(VulkanLogger, "Computed node (%s): trying to record a node that was not configured.", name.c_str());
+		return false;
+	}
+
 	//if (materialDescriptorSystems.empty())
 	//{
 	//	return false;
@@ -245,6 +258,12 @@ bool ComputeNode::Record(VkCommandBuffer commandBuffer, int frameInFlight, const
 
 void ComputeNode::Resize(const CommonFrameData& commonFrameData, const std::vector<NodeOutputs*>& nodeInputs)
 {
+	if (!configured)
+	{
+		CoreLogWarn(VulkanLogger, "Computed node (%s): trying to resize a node that was not configured.", name.c_str());
+		return;
+	}
+
 	const VulkanBackend::BackendData& backendData = *commonFrameData.backendData;
 
 	if (nodeOutputs.colorTarget)

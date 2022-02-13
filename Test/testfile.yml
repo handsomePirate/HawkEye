@@ -23,7 +23,7 @@ nodes:
     input:
       -
         color:
-            connection-name: mandelbrotNode
+            connection-name: generativeNode
             connection-slot: 0
             content-operation: preserve
     output:

@@ -179,10 +179,17 @@ void RasterizeNode::Configure(const YAML::Node& nodeConfiguration,
 		VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS,
 		VK_SAMPLE_COUNT_1_BIT, dynamicStates, vertexInput, renderPassReference,
 		pipelineLayout, shaderStages, commonFrameData.pipelineCache);
+
+	configured = true;
 }
 
 void RasterizeNode::Shutdown(const CommonFrameData& commonFrameData)
 {
+	if (!configured)
+	{
+		return;
+	}
+
 	const VulkanBackend::BackendData& backendData = *commonFrameData.backendData;
 	
 	VulkanBackend::DestroyPipeline(backendData, pipeline);
@@ -226,6 +233,12 @@ void RasterizeNode::Shutdown(const CommonFrameData& commonFrameData)
 bool RasterizeNode::Record(VkCommandBuffer commandBuffer, int frameInFlight, const CommonFrameData& commonFrameData,
 	bool startRenderPass, bool endRenderPass)
 {
+	if (!configured)
+	{
+		CoreLogWarn(VulkanLogger, "Rasterized node (%s): trying to record a node that was not configured.", name.c_str());
+		return false;
+	}
+
 	if (materialDescriptorSystems.empty())
 	{
 		return false;
@@ -302,6 +315,12 @@ bool RasterizeNode::Record(VkCommandBuffer commandBuffer, int frameInFlight, con
 
 void RasterizeNode::Resize(const CommonFrameData& commonFrameData, const std::vector<NodeOutputs*>& nodeInputs)
 {
+	if (!configured)
+	{
+		CoreLogWarn(VulkanLogger, "Rasterized node (%s): trying to resize a node that was not configured.", name.c_str());
+		return;
+	}
+
 	const VulkanBackend::BackendData& backendData = *commonFrameData.backendData;
 
 	if (nodeOutputs.colorTarget)

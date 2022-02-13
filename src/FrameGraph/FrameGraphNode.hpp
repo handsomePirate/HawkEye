@@ -42,6 +42,7 @@ public:
 protected:
 	std::string name;
 	FrameGraphNodeType type;
+	bool configured = false;
 	int samples;
 	int framesInFlightCount;
 	bool useSwapchain;
