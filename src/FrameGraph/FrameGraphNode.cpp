@@ -23,18 +23,48 @@ bool FrameGraphNode::IsFinal() const
 	return isFinal;
 }
 
+bool FrameGraphNode::IsFinalBlock() const
+{
+	return isFinalBlock;
+}
+
+bool FrameGraphNode::IsConfigured() const
+{
+	return configured;
+}
+
+void FrameGraphNode::SetIsFinalBlock(bool isFinalBlock)
+{
+	this->isFinalBlock = isFinalBlock;
+}
+
 void FrameGraphNode::UpdatePreallocatedUniformData(const std::string& name, int frameInFlight, void* data, int dataSize)
 {
+	if (!configured)
+	{
+		CoreLogError(VulkanLogger, "Uniform update: No uniform \'%s\' configured for node \'%s\'", name.c_str(), this->name.c_str());
+		return;
+	}
 	uniformDescriptorSystem.UpdatePreallocated(name, frameInFlight, data, dataSize);
 }
 
 void FrameGraphNode::UpdateTexture(const std::string& name, int frameInFlight, HawkEye::HTexture texture)
 {
+	if (!configured)
+	{
+		CoreLogError(VulkanLogger, "Uniform update: No texture uniform \'%s\' configured for node \'%s\'", name.c_str(), this->name.c_str());
+		return;
+	}
 	uniformDescriptorSystem.UpdateTexture(name, frameInFlight, texture);
 }
 
 void FrameGraphNode::UpdateStorageBuffer(const std::string& name, int frameInFlight, HawkEye::HBuffer storageBuffer)
 {
+	if (!configured)
+	{
+		CoreLogError(VulkanLogger, "Uniform update: No buffer uniform \'%s\' configured for node \'%s\'", name.c_str(), this->name.c_str());
+		return;
+	}
 	uniformDescriptorSystem.UpdateBuffer(name, frameInFlight, storageBuffer);
 }
 
@@ -56,8 +86,13 @@ const OutputTargetCharacteristics& FrameGraphNode::GetOutputCharacteristics()
 HawkEye::HMaterial FrameGraphNode::CreateMaterial(void* data, int dataSize)
 {
 	// TODO: Checks (e.g., dataSize)
+	if (type != FrameGraphNodeType::Rasterized)
+	{
+		CoreLogError(VulkanLogger, "Material creation: Only allowed for rasterized nodes (node \'%s\').", name);
+		return -1;
+	}
 
-	int materialIndex = materialDescriptorSystems.size();
+	int materialIndex = (int)materialDescriptorSystems.size();
 	materialDescriptorSystems.push_back(std::make_unique<DescriptorSystem>());
 	materialDescriptorSystems[materialIndex]->Init(backendData, rendererData, materialData, framesInFlightCount,
 		materialDescriptorSetLayout);

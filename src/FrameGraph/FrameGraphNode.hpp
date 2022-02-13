@@ -13,9 +13,14 @@ public:
 	const std::string& GetName() const;
 	FrameGraphNodeType GetType() const;
 	bool IsFinal() const;
+	bool IsFinalBlock() const;
+	bool IsConfigured() const;
+
+	void SetIsFinalBlock(bool isFinalBlock);
 
 	virtual void Configure(const YAML::Node& nodeConfiguration,
 		const std::vector<NodeOutputs*>& nodeInputs, std::vector<InputTargetCharacteristics>& inputCharacteristics,
+		OutputTargetCharacteristics& outputCharacteristics,
 		const CommonFrameData& commonFrameData, VkRenderPass renderPassReference, bool useSwapchain) = 0;
 
 	virtual void Shutdown(const CommonFrameData& commonFrameData) = 0;
@@ -47,6 +52,7 @@ protected:
 	int framesInFlightCount;
 	bool useSwapchain;
 	bool isFinal;
+	bool isFinalBlock = false;
 	bool reuseColorTarget;
 	bool reuseDepthTarget;
 	bool reuseSampleTarget;

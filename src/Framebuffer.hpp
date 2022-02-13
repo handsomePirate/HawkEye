@@ -1,21 +1,14 @@
 #pragma once
 #include <VulkanBackend/VulkanBackendAPI.hpp>
-
-struct Target
-{
-	VulkanBackend::Image image;
-	VkImageView imageView;
-	bool inherited;
-};
+#include "FrameGraph/NodeStructs.hpp"
 
 namespace FramebufferUtils
 {
 	Target CreateColorTarget(const VulkanBackend::BackendData& backendData,
-		const VulkanBackend::SurfaceData& surfaceData, VkFormat targetFormat = VK_FORMAT_UNDEFINED,
-		bool retargetSource = false);
+		const VulkanBackend::SurfaceData& surfaceData, ImageFormat targetFormat);
 
 	Target CreateDepthTarget(const VulkanBackend::BackendData& backendData,
-		const VulkanBackend::SurfaceData& surfaceData, VkFormat targetFormat = VK_FORMAT_UNDEFINED);
+		const VulkanBackend::SurfaceData& surfaceData, ImageFormat targetFormat);
 
 	void DestroyTarget(const VulkanBackend::BackendData& backendData, Target& target);
 }

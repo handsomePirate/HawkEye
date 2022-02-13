@@ -8,8 +8,7 @@ nodes:
     output:
         color:
             access: w
-        depth:
-            access: r
+            format: color-optimal
     shaders:
         compute: ../../src/shaders/test.comp.glsl
     uniforms:
@@ -26,11 +25,14 @@ nodes:
             connection-name: generativeNode
             connection-slot: 0
             content-operation: preserve
+            format: color-optimal
     output:
         color:
             access: w
+            format: color-optimal
         depth:
             access: w
+            format: depth-optimal
     shaders:
         vertex: ../../src/shaders/test.vert.glsl
         fragment: ../../src/shaders/test.frag.glsl
@@ -63,11 +65,11 @@ nodes:
             connection-name: rasterizedNode
             connection-slot: 0
             content-operation: preserve
+            format: color-optimal
     output:
         color:
             access: rw
-        depth:
-            access: r
+            format: color-optimal
     shaders:
         compute: ../../src/shaders/blur.comp.glsl
   -
@@ -79,11 +81,11 @@ nodes:
             connection-name: blurNode
             connection-slot: 0
             content-operation: preserve
+            format: color-optimal
     output:
         color:
             access: rw
-        depth:
-            access: r
+            format: color-optimal
     shaders:
         compute: ../../src/shaders/edge.comp.glsl
   -
@@ -96,10 +98,10 @@ nodes:
             connection-name: edgeDetectNode
             connection-slot: 0
             content-operation: preserve
+            format: color-optimal
     output:
         color:
             access: rw
-        depth:
-            access: r
+            format: color-optimal
     shaders:
         compute: ../../src/shaders/inverse.comp.glsl

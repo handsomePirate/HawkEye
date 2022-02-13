@@ -6,7 +6,10 @@
 #include <VulkanShaderCompiler/VulkanShaderCompilerAPI.hpp>
 
 RasterizeNode::RasterizeNode(const std::string& name, int framesInFlightCount, bool isFinal)
-	: FrameGraphNode(name, framesInFlightCount, FrameGraphNodeType::Rasterized, isFinal) {}
+	: FrameGraphNode(name, framesInFlightCount, FrameGraphNodeType::Rasterized, isFinal)
+{
+	isFinalBlock = isFinal;
+}
 
 RasterizeNode::~RasterizeNode()
 {
@@ -14,6 +17,7 @@ RasterizeNode::~RasterizeNode()
 
 void RasterizeNode::Configure(const YAML::Node& nodeConfiguration,
 	const std::vector<NodeOutputs*>& nodeInputs, std::vector<InputTargetCharacteristics>& inputCharacteristics,
+	OutputTargetCharacteristics& outputCharacteristics,
 	const CommonFrameData& commonFrameData, VkRenderPass renderPassReference, bool useSwapchain)
 {
 	backendData = commonFrameData.backendData;
@@ -21,7 +25,7 @@ void RasterizeNode::Configure(const YAML::Node& nodeConfiguration,
 
 	// inputs & outputs
 	nodeInputCharacteristics = std::move(inputCharacteristics);
-	nodeOutputCharacteristics = FrameGraphConfigurator::GetOutputCharacteristics(nodeConfiguration["output"]);
+	nodeOutputCharacteristics = std::move(outputCharacteristics);
 	// Create new targets, iff no slot is connected or the node is read-write
 	// targets
 
@@ -31,7 +35,7 @@ void RasterizeNode::Configure(const YAML::Node& nodeConfiguration,
 	if (nodeInputCharacteristics.size() == 1 && nodeInputCharacteristics[0].colorTarget &&
 		nodeOutputCharacteristics.colorTarget && nodeOutputCharacteristics.colorTarget->write &&
 		!nodeOutputCharacteristics.colorTarget->read &&
-		nodeInputCharacteristics[0].colorTarget->format == nodeOutputCharacteristics.colorTarget->format &&
+		nodeInputCharacteristics[0].colorTarget->imageFormat.Equals(nodeOutputCharacteristics.colorTarget->imageFormat) &&
 		nodeInputs.size() > 0)
 		// TODO: nodeInputs also need to contain color target.
 	{
@@ -48,7 +52,7 @@ void RasterizeNode::Configure(const YAML::Node& nodeConfiguration,
 	if (nodeInputCharacteristics.size() == 1 && nodeInputCharacteristics[0].depthTarget &&
 		nodeOutputCharacteristics.depthTarget && nodeOutputCharacteristics.depthTarget->write &&
 		!nodeOutputCharacteristics.depthTarget->read &&
-		nodeInputCharacteristics[0].depthTarget->format == nodeOutputCharacteristics.depthTarget->format &&
+		nodeInputCharacteristics[0].depthTarget->imageFormat.Equals(nodeOutputCharacteristics.depthTarget->imageFormat) &&
 		nodeInputs.size() > 0)
 		// TODO: nodeInputs also need to contain depth target.
 	{
@@ -65,7 +69,7 @@ void RasterizeNode::Configure(const YAML::Node& nodeConfiguration,
 	if (nodeInputCharacteristics.size() == 1 && nodeInputCharacteristics[0].sampleTarget &&
 		nodeOutputCharacteristics.sampleTarget && nodeOutputCharacteristics.sampleTarget->write &&
 		!nodeOutputCharacteristics.sampleTarget->read &&
-		nodeInputCharacteristics[0].sampleTarget->format == nodeOutputCharacteristics.sampleTarget->format &&
+		nodeInputCharacteristics[0].sampleTarget->imageFormat.Equals(nodeOutputCharacteristics.sampleTarget->imageFormat) &&
 		nodeInputs.size() > 0)
 		// TODO: nodeInputs also need to contain sample target.
 	{
@@ -353,7 +357,7 @@ void RasterizeNode::CreateColorTarget(const CommonFrameData& commonFrameData, co
 		if (nodeOutputCharacteristics.colorTarget && !reuseColorTarget)
 		{
 			nodeOutputs.colorTarget = std::make_unique<Target>(FramebufferUtils::CreateColorTarget(*backendData,
-				*commonFrameData.surfaceData.get(), nodeOutputCharacteristics.colorTarget->format, !useSwapchain));
+				*commonFrameData.surfaceData.get(), nodeOutputCharacteristics.colorTarget->imageFormat));
 		}
 		else
 		{
@@ -371,7 +375,7 @@ void RasterizeNode::CreateDepthTarget(const CommonFrameData& commonFrameData, co
 		if (!reuseDepthTarget)
 		{
 			nodeOutputs.depthTarget = std::make_unique<Target>(FramebufferUtils::CreateDepthTarget(*backendData,
-				*commonFrameData.surfaceData.get(), nodeOutputCharacteristics.depthTarget->format));
+				*commonFrameData.surfaceData.get(), nodeOutputCharacteristics.depthTarget->imageFormat));
 		}
 		else
 		{
@@ -390,7 +394,7 @@ void RasterizeNode::CreateSampleTarget(const CommonFrameData& commonFrameData, c
 		if (!reuseSampleTarget)
 		{
 			nodeOutputs.sampleTarget = std::make_unique<Target>(FramebufferUtils::CreateColorTarget(*backendData,
-				*commonFrameData.surfaceData.get(), nodeOutputCharacteristics.sampleTarget->format));
+				*commonFrameData.surfaceData.get(), nodeOutputCharacteristics.sampleTarget->imageFormat));
 		}
 		else
 		{

@@ -9,6 +9,7 @@ public:
 	// TODO: Provide swapchain as output.
 	void Configure(const YAML::Node& nodeConfiguration,
 		const std::vector<NodeOutputs*>& nodeInputs, std::vector<InputTargetCharacteristics>& inputCharacteristics,
+		OutputTargetCharacteristics& outputCharacteristics,
 		const CommonFrameData& commonFrameData, VkRenderPass renderPassReference, bool useSwapchain) override;
 	void Shutdown(const CommonFrameData& commonFrameData) override;
 	// TODO: Change for layer and common information.

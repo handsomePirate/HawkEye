@@ -1,13 +1,25 @@
 #include "Framebuffer.hpp"
 
 Target FramebufferUtils::CreateColorTarget(const VulkanBackend::BackendData& backendData,
-	const VulkanBackend::SurfaceData& surfaceData, VkFormat targetFormat, bool retargetSource)
+	const VulkanBackend::SurfaceData& surfaceData, ImageFormat targetFormat)
 {
 	Target target;
-	targetFormat = (targetFormat != VK_FORMAT_UNDEFINED) ? targetFormat : surfaceData.surfaceFormat.format;
+	VkFormat format = targetFormat.format;
+	if (targetFormat.metadata != ImageFormat::Metadata::Specified)
+	{
+		if (targetFormat.metadata == ImageFormat::Metadata::ColorOptimal)
+		{
+			format = surfaceData.surfaceFormat.format;
+		}
+		else if (targetFormat.metadata == ImageFormat::Metadata::DepthOptimal)
+		{
+			CoreLogError(VulkanLogger, "Configuration: input/output format for color target is depth optimal");
+			return target;
+		}
+	}
 	target.image = VulkanBackend::CreateImage2D(backendData, surfaceData.width, surfaceData.height, 1, 1,
-		VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | (retargetSource ? VK_IMAGE_USAGE_STORAGE_BIT : 0),
-		surfaceData.surfaceFormat.format, VMA_MEMORY_USAGE_GPU_ONLY);
+		VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+		format, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	VkImageSubresourceRange subresourceRange{};
 	subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -15,7 +27,7 @@ Target FramebufferUtils::CreateColorTarget(const VulkanBackend::BackendData& bac
 	subresourceRange.levelCount = 1;
 
 	target.imageView = VulkanBackend::CreateImageView2D(backendData, target.image.image,
-		surfaceData.surfaceFormat.format, subresourceRange);
+		format, subresourceRange);
 
 	target.inherited = false;
 
@@ -23,13 +35,25 @@ Target FramebufferUtils::CreateColorTarget(const VulkanBackend::BackendData& bac
 }
 
 Target FramebufferUtils::CreateDepthTarget(const VulkanBackend::BackendData& backendData,
-	const VulkanBackend::SurfaceData& surfaceData, VkFormat targetFormat)
+	const VulkanBackend::SurfaceData& surfaceData, ImageFormat targetFormat)
 {
 	Target target;
-	targetFormat = (targetFormat != VK_FORMAT_UNDEFINED) ? targetFormat : surfaceData.depthFormat;
+	VkFormat format = targetFormat.format;
+	if (targetFormat.metadata != ImageFormat::Metadata::Specified)
+	{
+		if (targetFormat.metadata == ImageFormat::Metadata::DepthOptimal)
+		{
+			format = surfaceData.depthFormat;
+		}
+		else if (targetFormat.metadata == ImageFormat::Metadata::ColorOptimal)
+		{
+			CoreLogError(VulkanLogger, "Configuration: input/output format for depth target is color optimal");
+			return target;
+		}
+	}
 	target.image = VulkanBackend::CreateImage2D(backendData, surfaceData.width, surfaceData.height, 1, 1,
 		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT /*| VK_IMAGE_USAGE TRANSFER_SRC_BIT*/,
-		surfaceData.depthFormat, VMA_MEMORY_USAGE_GPU_ONLY);
+		format, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	VkImageSubresourceRange subresourceRange{};
 	subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
@@ -37,7 +61,7 @@ Target FramebufferUtils::CreateDepthTarget(const VulkanBackend::BackendData& bac
 	subresourceRange.levelCount = 1;
 
 	target.imageView = VulkanBackend::CreateImageView2D(backendData, target.image.image,
-		surfaceData.depthFormat, subresourceRange);
+		format, subresourceRange);
 
 	target.inherited = false;
 

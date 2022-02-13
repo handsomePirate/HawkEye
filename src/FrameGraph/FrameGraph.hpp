@@ -26,12 +26,16 @@ public:
 	void UseBuffers(const std::string& nodeName, HawkEye::Pipeline::DrawBuffer* drawBuffers, int bufferCount);
 
 private:
-	void RecursivelyConfigure(FrameGraphNode* node, FrameGraphNode* nextNode, const YAML::Node& graphConfiguration,
-		const CommonFrameData& commonFrameData);
+	VkRenderPass RecursivelyConfigure(FrameGraphNode* node, FrameGraphNode* nextNode, const YAML::Node& graphConfiguration,
+		const CommonFrameData& commonFrameData, const std::vector<InputTargetCharacteristics>* nextInputCharacteristics);
 	const OutputTargetCharacteristics& RecursivelyRecord(VkCommandBuffer commandBuffer, int frameInFlight,
 		const CommonFrameData& commonFrameData, FrameGraphNode* node, FrameGraphNode* nextNode);
 	void RecursivelyResize(FrameGraphNode* node, const CommonFrameData& commonFrameData);
+	// Deletes all nodes that have not been configured (not relevant to rendering).
+	void PruneGraph();
 
 	std::map<std::string, std::unique_ptr<FrameGraphNode>> nodes;
 	FrameGraphNode* finalNode;
+	std::vector<VkRenderPass> renderPasses;
+	VulkanBackend::BackendData* backendData;
 };

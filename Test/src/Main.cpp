@@ -10,6 +10,7 @@
 #include <chrono>
 #include <future>
 #include <iostream>
+#include <thread>
 
 const int windowWidth = 720;
 const int windowHeight = 480;
@@ -389,8 +390,11 @@ int main(int argc, char* argv[])
 
 		// Rendering loop.
 
+		const float targetTimeDelta = 1 / 60.f * 1000.f;
 		float timeDelta = 1;
 		auto before = std::chrono::high_resolution_clock::now();
+		unsigned int currentTime = unsigned int(std::chrono::duration_cast<std::chrono::milliseconds>(before.time_since_epoch()).count());
+		renderingPipeline1.SetUniform("generativeNode", "time", currentTime);
 #ifdef SECOND_WINDOW
 		while (!testWindow1->ShouldClose() && !testWindow2->ShouldClose())
 #else
@@ -410,6 +414,12 @@ int main(int argc, char* argv[])
 			HandleInput(timeDelta);
 			unsigned int currentTime = unsigned int(std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count());
 			renderingPipeline1.SetUniform("generativeNode", "time", currentTime);
+			
+			// Stabilizing frame rate.
+			if (timeDelta < targetTimeDelta)
+			{
+				std::this_thread::sleep_for(std::chrono::milliseconds(int(targetTimeDelta - timeDelta)));
+			}
 		}
 
 		// Releasing of resources.

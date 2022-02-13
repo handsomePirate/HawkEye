@@ -1,6 +1,6 @@
 #pragma once
 #include "HawkEye/HawkEyeAPI.hpp"
-#include "../Framebuffer.hpp"
+#include <VulkanBackend/VulkanBackendAPI.hpp>
 #include <vector>
 #include <memory>
 #include <vulkan/vulkan.hpp>
@@ -9,6 +9,12 @@ enum class FrameGraphNodeType
 {
 	Rasterized,
 	Computed
+};
+
+enum class TargetType
+{
+	Color,
+	Depth
 };
 
 struct CommandBufferData
@@ -27,10 +33,6 @@ struct CommonFrameData
 	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
 	std::vector<VkImage> swapchainImages;
 	std::vector<VkImageView> swapchainImageViews;
-	VkRenderPass renderPassUP = VK_NULL_HANDLE;
-	VkRenderPass renderPassUA = VK_NULL_HANDLE;
-	VkRenderPass renderPassGA = VK_NULL_HANDLE;
-	VkRenderPass renderPassGP = VK_NULL_HANDLE;
 	VkPipelineCache pipelineCache = VK_NULL_HANDLE;
 
 	VkSampler targetSampler;
@@ -42,6 +44,13 @@ struct CommonFrameData
 	VkQueue computeQueue = VK_NULL_HANDLE;
 
 	uint64_t currentFrame = 0;
+};
+
+struct Target
+{
+	VulkanBackend::Image image;
+	VkImageView imageView;
+	bool inherited;
 };
 
 struct NodeOutputs
@@ -59,11 +68,37 @@ enum class ContentOperation
 	Preserve
 };
 
+struct ImageFormat
+{
+	VkFormat format = VK_FORMAT_UNDEFINED;
+	enum class Metadata {
+		Specified,
+		ColorOptimal,
+		DepthOptimal
+	} metadata = Metadata::Specified;
+	bool Equals(const ImageFormat& other) const
+	{
+		return format == other.format && metadata == other.metadata;
+	}
+	VkFormat Resolve(const VulkanBackend::SurfaceData& surfaceData) const
+	{
+		if (metadata == Metadata::Specified)
+		{
+			return format;
+		}
+		if (metadata == Metadata::ColorOptimal)
+		{
+			return surfaceData.surfaceFormat.format;
+		}
+		return surfaceData.depthFormat;
+	}
+};
+
 struct InputImageCharacteristics
 {
 	float widthModifier;
 	float heightModifier;
-	VkFormat format = VK_FORMAT_UNDEFINED;
+	ImageFormat imageFormat;
 	std::string connectionName;
 	int connectionSlot;
 	ContentOperation contentOperation;
@@ -73,7 +108,7 @@ struct OutputImageCharacteristics
 {
 	float widthModifier;
 	float heightModifier;
-	VkFormat format = VK_FORMAT_UNDEFINED;
+	ImageFormat imageFormat;
 	bool read;
 	bool write;
 };

@@ -78,15 +78,6 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 		VK_BORDER_COLOR_INT_TRANSPARENT_BLACK, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
 		VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, 0.f, 1);
 
-	// TODO: Solve depth target.
-	p_->commonFrameData.renderPassUP = VulkanBackend::CreateRenderPass(backendData, surfaceData, true);
-	p_->commonFrameData.renderPassUA = VulkanBackend::CreateRenderPass(backendData, surfaceData, true,
-		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	p_->commonFrameData.renderPassGA = VulkanBackend::CreateRenderPass(backendData, surfaceData, true,
-		VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	p_->commonFrameData.renderPassGP = VulkanBackend::CreateRenderPass(backendData, surfaceData, true,
-		VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
 	VkPipelineCache pipelineCache = VulkanBackend::CreatePipelineCache(backendData);
 	p_->commonFrameData.pipelineCache = pipelineCache;
 
@@ -139,10 +130,6 @@ void HawkEye::Pipeline::Shutdown()
 
 		VulkanBackend::DestroyImageSampler(backendData, p_->commonFrameData.targetSampler);
 
-		VulkanBackend::DestroyRenderPass(backendData, p_->commonFrameData.renderPassUP);
-		VulkanBackend::DestroyRenderPass(backendData, p_->commonFrameData.renderPassUA);
-		VulkanBackend::DestroyRenderPass(backendData, p_->commonFrameData.renderPassGA);
-		VulkanBackend::DestroyRenderPass(backendData, p_->commonFrameData.renderPassGP);
 		if (p_->commonFrameData.swapchain)
 		{
 			for (int i = 0; i < p_->commonFrameData.framesInFlightCount; ++i)

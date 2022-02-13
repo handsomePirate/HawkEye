@@ -270,11 +270,51 @@ VkFormat GetFormat(const YAML::Node& nodeConfiguration)
 		return (VkFormat)formatOffset;
 	}
 
-	CoreLogError(VulkanLogger, "Configuration: Format not specified.");
+	CoreLogFatal(VulkanLogger, "Configuration: Format not defined.");
 	return VK_FORMAT_UNDEFINED;
 }
 
-std::unique_ptr<OutputImageCharacteristics> GetOutputImageCharacteristics(const YAML::Node& nodeConfiguration)
+ImageFormat GetImageFormat(const YAML::Node& nodeConfiguration, TargetType type)
+{
+	ImageFormat imageFormat;
+	if (!nodeConfiguration["format"].IsDefined())
+	{
+		CoreLogFatal(VulkanLogger, "Configuration: Format not defined.");
+		return imageFormat;
+	}
+
+	if (nodeConfiguration["format"].IsMap())
+	{
+		imageFormat.format = GetFormat(nodeConfiguration["format"]);
+	}
+	else
+	{
+		std::string formatString = nodeConfiguration["format"].as<std::string>();
+		if (formatString == "color-optimal")
+		{
+			imageFormat.metadata = ImageFormat::Metadata::ColorOptimal;
+		}
+		else if (formatString == "depth-optimal")
+		{
+			imageFormat.metadata = ImageFormat::Metadata::DepthOptimal;
+		}
+		else if (formatString == "optimal")
+		{
+			if (type == TargetType::Color)
+			{
+				imageFormat.metadata = ImageFormat::Metadata::ColorOptimal;
+			}
+			else if (type == TargetType::Depth)
+			{
+				imageFormat.metadata = ImageFormat::Metadata::DepthOptimal;
+			}
+		}
+	}
+
+	return imageFormat;
+}
+
+std::unique_ptr<OutputImageCharacteristics> GetOutputImageCharacteristics(const YAML::Node& nodeConfiguration, TargetType type)
 {
 	// width modifier
 	float widthModifier = 1.f;
@@ -289,7 +329,8 @@ std::unique_ptr<OutputImageCharacteristics> GetOutputImageCharacteristics(const 
 		heightModifier = nodeConfiguration["height-modifier"].as<float>();
 	}
 	// format
-	VkFormat format = GetFormat(nodeConfiguration["format"]);
+	ImageFormat imageFormat = GetImageFormat(nodeConfiguration, type);
+
 	// read/write.
 	bool read = true;
 	bool write = true;
@@ -320,10 +361,10 @@ std::unique_ptr<OutputImageCharacteristics> GetOutputImageCharacteristics(const 
 
 
 	return std::make_unique<OutputImageCharacteristics>(
-		OutputImageCharacteristics{ widthModifier, heightModifier, format, read, write });
+		OutputImageCharacteristics{ widthModifier, heightModifier, imageFormat, read, write });
 }
 
-std::unique_ptr<InputImageCharacteristics> GetInputImageCharacteristics(const YAML::Node& nodeConfiguration)
+std::unique_ptr<InputImageCharacteristics> GetInputImageCharacteristics(const YAML::Node& nodeConfiguration, TargetType type)
 {
 	// width modifier
 	float widthModifier = 1.f;
@@ -338,7 +379,7 @@ std::unique_ptr<InputImageCharacteristics> GetInputImageCharacteristics(const YA
 		heightModifier = nodeConfiguration["height-modifier"].as<float>();
 	}
 	// format
-	VkFormat format = GetFormat(nodeConfiguration["format"]);
+	ImageFormat imageFormat = GetImageFormat(nodeConfiguration, type);
 
 	// connection name
 	std::string connectionName = "";
@@ -374,7 +415,7 @@ std::unique_ptr<InputImageCharacteristics> GetInputImageCharacteristics(const YA
 	}
 
 	return std::make_unique<InputImageCharacteristics>(
-		InputImageCharacteristics{ widthModifier, heightModifier, format, connectionName, connectionSlot, contentOperation });
+		InputImageCharacteristics{ widthModifier, heightModifier, imageFormat, connectionName, connectionSlot, contentOperation });
 }
 
 std::vector<InputTargetCharacteristics> FrameGraphConfigurator::GetInputCharacteristics(const YAML::Node& nodeConfiguration)
@@ -387,16 +428,16 @@ std::vector<InputTargetCharacteristics> FrameGraphConfigurator::GetInputCharacte
 			InputTargetCharacteristics targetCharacteristics{};
 			if (nodeConfiguration[c]["color"])
 			{
-				targetCharacteristics.colorTarget = GetInputImageCharacteristics(nodeConfiguration[c]["color"]);
+				targetCharacteristics.colorTarget = GetInputImageCharacteristics(nodeConfiguration[c]["color"], TargetType::Color);
 			}
 			if (nodeConfiguration[c]["depth"])
 			{
 				// TODO: Have default format?
-				targetCharacteristics.depthTarget = GetInputImageCharacteristics(nodeConfiguration[c]["depth"]);
+				targetCharacteristics.depthTarget = GetInputImageCharacteristics(nodeConfiguration[c]["depth"], TargetType::Depth);
 			}
 			if (nodeConfiguration[c]["sample"])
 			{
-				targetCharacteristics.sampleTarget = GetInputImageCharacteristics(nodeConfiguration[c]["sample"]);
+				targetCharacteristics.sampleTarget = GetInputImageCharacteristics(nodeConfiguration[c]["sample"], TargetType::Color);
 			}
 			result.push_back(std::move(targetCharacteristics));
 		}
@@ -414,16 +455,16 @@ OutputTargetCharacteristics FrameGraphConfigurator::GetOutputCharacteristics(con
 	{
 		if (nodeConfiguration["color"])
 		{
-			result.colorTarget = GetOutputImageCharacteristics(nodeConfiguration["color"]);
+			result.colorTarget = GetOutputImageCharacteristics(nodeConfiguration["color"], TargetType::Color);
 		}
 		if (nodeConfiguration["depth"])
 		{
 			// TODO: Have default format?
-			result.depthTarget = GetOutputImageCharacteristics(nodeConfiguration["depth"]);
+			result.depthTarget = GetOutputImageCharacteristics(nodeConfiguration["depth"], TargetType::Depth);
 		}
 		if (nodeConfiguration["sample"])
 		{
-			result.sampleTarget = GetOutputImageCharacteristics(nodeConfiguration["sample"]);
+			result.sampleTarget = GetOutputImageCharacteristics(nodeConfiguration["sample"], TargetType::Color);
 		}
 		return result;
 	}
