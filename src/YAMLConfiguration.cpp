@@ -352,7 +352,7 @@ std::unique_ptr<InputImageCharacteristics> GetInputImageCharacteristics(const YA
 	if (nodeConfiguration["connection-slot"])
 	{
 		// TODO: Make sure this slot exists in the node.
-		connectionName = nodeConfiguration["connection-slot"].as<int>();
+		connectionSlot = nodeConfiguration["connection-slot"].as<int>();
 	}
 	// content operation
 	ContentOperation contentOperation = ContentOperation::DontCare;
@@ -374,7 +374,7 @@ std::unique_ptr<InputImageCharacteristics> GetInputImageCharacteristics(const YA
 	}
 
 	return std::make_unique<InputImageCharacteristics>(
-		InputImageCharacteristics{ widthModifier, heightModifier, format, connectionName, connectionSlot });
+		InputImageCharacteristics{ widthModifier, heightModifier, format, connectionName, connectionSlot, contentOperation });
 }
 
 std::vector<InputTargetCharacteristics> FrameGraphConfigurator::GetInputCharacteristics(const YAML::Node& nodeConfiguration)

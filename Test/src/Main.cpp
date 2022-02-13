@@ -87,7 +87,7 @@ void Resize(int width, int height)
 	if (renderingPipeline1.Configured())
 	{
 		Eigen::Matrix4f viewProjectionMatrix = camera1.GetProjectionMatrix() * camera1.GetViewMatrix();
-		renderingPipeline1.SetUniform("testNode", "camera", viewProjectionMatrix);
+		renderingPipeline1.SetUniform("rasterizedNode", "camera", viewProjectionMatrix);
 		renderingPipeline1.Resize(width, height);
 	}
 }
@@ -205,7 +205,7 @@ void HandleInput(float timeDelta)
 	if (renderingPipeline->Configured())
 	{
 		Eigen::Matrix4f viewProjectionMatrix = camera->GetProjectionMatrix() * camera->GetViewMatrix();
-		renderingPipeline->SetUniform("testNode", "camera", viewProjectionMatrix);
+		renderingPipeline->SetUniform("rasterizedNode", "camera", viewProjectionMatrix);
 	}
 
 	lastMouseX = mouseX;
@@ -339,14 +339,14 @@ int main(int argc, char* argv[])
 		};
 		//TextureMaterial materialData1{ textures[0] };
 		ColorMaterial materialData1{ 1, 0, 0 };
-		HawkEye::HMaterial material1 = renderingPipeline1.CreateMaterial("testNode", materialData1);
+		HawkEye::HMaterial material1 = renderingPipeline1.CreateMaterial("rasterizedNode", materialData1);
 #ifdef SECOND_WINDOW
 		HawkEye::HMaterial material21 = renderingPipeline2.CreateMaterial(materialData1, 1);
 #endif
 
 		//TextureMaterial materialData2{ myTexture };
 		ColorMaterial materialData2{ 0, 0, 1 };
-		HawkEye::HMaterial material2 = renderingPipeline1.CreateMaterial("testNode", materialData2);
+		HawkEye::HMaterial material2 = renderingPipeline1.CreateMaterial("rasterizedNode", materialData2);
 
 		HawkEye::HBuffer vertexBuffer0;
 		HawkEye::HBuffer vertexBuffer1;
@@ -377,9 +377,9 @@ int main(int argc, char* argv[])
 		drawBuffers[1].material = material2;
 		drawBuffers[1].instanceBuffer = instanceBuffer;
 
-		renderingPipeline1.UseBuffers("testNode", drawBuffers, drawBufferCount);
+		renderingPipeline1.UseBuffers("rasterizedNode", drawBuffers, drawBufferCount);
 		Eigen::Matrix4f viewProjectionMatrix = camera1.GetProjectionMatrix() * camera1.GetViewMatrix();
-		renderingPipeline1.SetUniform("testNode", "camera", viewProjectionMatrix);
+		renderingPipeline1.SetUniform("rasterizedNode", "camera", viewProjectionMatrix);
 		
 #ifdef SECOND_WINDOW
 		renderingPipeline2.UseBuffers(drawBuffers, 1, 1);

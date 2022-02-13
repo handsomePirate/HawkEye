@@ -191,11 +191,10 @@ void HawkEye::Pipeline::DrawFrame()
 	const VulkanBackend::BackendData& backendData = *p_->commonFrameData.backendData;
 	VkDevice device = backendData.logicalDevice;
 
-	uint32_t frameIndex = (uint32_t)(p_->commonFrameData.currentFrame % p_->frameFences.size());
-
-	uint32_t currentImageIndex;
+	uint32_t currentImageIndex = UINT32_MAX;
 	VkResult result = vkAcquireNextImageKHR(device, p_->commonFrameData.swapchain, UINT64_MAX, p_->presentSemaphore,
 		VK_NULL_HANDLE, &currentImageIndex);
+	
 	// Recreate the swapchain if it's no longer compatible with the surface (OUT_OF_DATE) or no longer optimal for presentation (SUBOPTIMAL)
 	if ((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR))
 	{
@@ -203,9 +202,14 @@ void HawkEye::Pipeline::DrawFrame()
 		return;
 	}
 	VulkanCheck(result);
+	if (currentImageIndex == UINT32_MAX)
+	{
+		CoreLogFatal(VulkanLogger, "Error: Lost the swapchain.");
+		throw std::runtime_error("Error: Lost the swapchain.");
+	}
 
-	vkWaitForFences(device, 1, &p_->frameFences[frameIndex], VK_TRUE, UINT64_MAX);
-	vkResetFences(device, 1, &p_->frameFences[frameIndex]);
+	vkWaitForFences(device, 1, &p_->frameFences[currentImageIndex], VK_TRUE, UINT64_MAX);
+	vkResetFences(device, 1, &p_->frameFences[currentImageIndex]);
 
 	if (p_->commonFrameData.commandBuffers[currentImageIndex].dirty)
 	{
@@ -230,7 +234,7 @@ void HawkEye::Pipeline::DrawFrame()
 	submitInfo.pSignalSemaphores = &p_->graphicsSemaphore;
 	submitInfo.pCommandBuffers = &p_->commonFrameData.commandBuffers[currentImageIndex].commandBuffer;
 
-	VulkanCheck(vkQueueSubmit(p_->commonFrameData.graphicsQueue, 1, &submitInfo, p_->frameFences[frameIndex]));
+	VulkanCheck(vkQueueSubmit(p_->commonFrameData.graphicsQueue, 1, &submitInfo, p_->frameFences[currentImageIndex]));
 
 	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

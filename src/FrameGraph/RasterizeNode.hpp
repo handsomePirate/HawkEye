@@ -4,9 +4,10 @@
 class RasterizeNode : public FrameGraphNode
 {
 public:
+	RasterizeNode(const std::string& name, int framesInFlightCount, bool isFinal);
 	virtual ~RasterizeNode();
 	// TODO: Provide swapchain as output.
-	void Configure(const YAML::Node& nodeConfiguration, int framesInFlightCount,
+	void Configure(const YAML::Node& nodeConfiguration,
 		const std::vector<NodeOutputs*>& nodeInputs, std::vector<InputTargetCharacteristics>& inputCharacteristics,
 		const CommonFrameData& commonFrameData, VkRenderPass renderPassReference, bool useSwapchain) override;
 	void Shutdown(const CommonFrameData& commonFrameData) override;

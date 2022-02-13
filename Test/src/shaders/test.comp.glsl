@@ -3,17 +3,17 @@
 
 layout(local_size_x = 16, local_size_y = 16) in;
 
-layout(set = 0, binding = 0) uniform Frame
-{
-	uint time;
-} frame;
-
-layout(binding = 1, rgba8) uniform writeonly image2D resultImage;
+layout(binding = 0, rgba8) uniform writeonly image2D resultImage;
 
 layout(set = 1, binding = 0) uniform Transform
 {
 	mat4 matrix;
 } transform;
+
+layout(set = 1, binding = 1) uniform Frame
+{
+	uint time;
+} frame;
 
 uvec2 pictureSize = (gl_NumWorkGroups * gl_WorkGroupSize).xy;
 uvec2 pixelCoords = gl_GlobalInvocationID.xy;

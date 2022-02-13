@@ -5,18 +5,19 @@
 #include <VulkanBackend/ErrorCheck.hpp>
 #include <VulkanShaderCompiler/VulkanShaderCompilerAPI.hpp>
 
+RasterizeNode::RasterizeNode(const std::string& name, int framesInFlightCount, bool isFinal)
+	: FrameGraphNode(name, framesInFlightCount, FrameGraphNodeType::Rasterized, isFinal) {}
+
 RasterizeNode::~RasterizeNode()
 {
-
 }
 
-void RasterizeNode::Configure(const YAML::Node& nodeConfiguration, int framesInFlightCount,
+void RasterizeNode::Configure(const YAML::Node& nodeConfiguration,
 	const std::vector<NodeOutputs*>& nodeInputs, std::vector<InputTargetCharacteristics>& inputCharacteristics,
 	const CommonFrameData& commonFrameData, VkRenderPass renderPassReference, bool useSwapchain)
 {
 	backendData = commonFrameData.backendData;
 	rendererData = commonFrameData.rendererData;
-	FrameGraphNode::framesInFlightCount = framesInFlightCount;
 
 	// inputs & outputs
 	nodeInputCharacteristics = std::move(inputCharacteristics);
@@ -249,20 +250,6 @@ bool RasterizeNode::Record(VkCommandBuffer commandBuffer, int frameInFlight, con
 
 		vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	}
-
-	VkViewport viewport;
-	viewport.x = 0;
-	viewport.y = 0;
-	viewport.width = (float)commonFrameData.surfaceData->width;
-	viewport.height = (float)commonFrameData.surfaceData->height;
-	viewport.minDepth = 0.f;
-	viewport.maxDepth = 1.f;
-	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-	VkRect2D scissor;
-	scissor.offset = { 0, 0 };
-	scissor.extent = VkExtent2D{ (uint32_t)commonFrameData.surfaceData->width, (uint32_t)commonFrameData.surfaceData->height };
-	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 

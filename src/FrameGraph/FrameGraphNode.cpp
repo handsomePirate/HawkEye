@@ -1,23 +1,26 @@
 #include "FrameGraphNode.hpp"
 
-FrameGraphNode::FrameGraphNode()
-{
-
-}
+FrameGraphNode::FrameGraphNode(const std::string& name, int framesInFlightCount, FrameGraphNodeType type, bool isFinal)
+	: name(name), framesInFlightCount(framesInFlightCount), type(type), isFinal(isFinal) {}
 
 FrameGraphNode::~FrameGraphNode()
 {
 
 }
 
-void FrameGraphNode::SetName(const std::string& name)
-{
-	this->name = name;
-}
-
 const std::string& FrameGraphNode::GetName() const
 {
 	return name;
+}
+
+FrameGraphNodeType FrameGraphNode::GetType() const
+{
+	return type;
+}
+
+bool FrameGraphNode::IsFinal() const
+{
+	return isFinal;
 }
 
 void FrameGraphNode::UpdatePreallocatedUniformData(const std::string& name, int frameInFlight, void* data, int dataSize)

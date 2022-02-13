@@ -1,19 +1,29 @@
 # Hawk Eye pipeline configuration.
 
 nodes:
-#  -
-#    type: computed
-#    dim: 3
-#    shaders:
-#        compute: ../../src/shaders/test.comp.glsl
+  -
+    type: computed
+    name: mandelbrotNode
+    input:
+    output:
+        color:
+            access: w
+        depth:
+            access: r
+    shaders:
+        compute: ../../src/shaders/mandelbrot.comp.glsl
   -
     type: rasterized
-    name: testNode
-    final: true
+    name: rasterizedNode
     input:
       -
-        depth:
+        color:
+            connection-name: mandelbrotNode
+            connection-slot: 0
+            content-operation: preserve
     output:
+        color:
+            access: w
         depth:
             access: w
     shaders:
@@ -39,18 +49,52 @@ nodes:
         # uv
       - vec2
     cull-mode: front
-#  -
-#    type: computed
-#    dim: 2
-#    shaders:
-#        compute: ../../src/shaders/blur.comp.glsl
-#  -
-#    type: computed
-#    dim: 2
-#    shaders:
-#        compute: ../../src/shaders/edge.comp.glsl
-#  -
-#    type: computed
-#    dim: 2
-#    shaders:
-#        compute: ../../src/shaders/inverse.comp.glsl
+  -
+    type: computed
+    name: blurNode
+    input:
+      -
+        color:
+            connection-name: rasterizedNode
+            connection-slot: 0
+            content-operation: preserve
+    output:
+        color:
+            access: rw
+        depth:
+            access: r
+    shaders:
+        compute: ../../src/shaders/blur.comp.glsl
+  -
+    type: computed
+    name: edgeDetectNode
+    input:
+      -
+        color:
+            connection-name: blurNode
+            connection-slot: 0
+            content-operation: preserve
+    output:
+        color:
+            access: rw
+        depth:
+            access: r
+    shaders:
+        compute: ../../src/shaders/edge.comp.glsl
+  -
+    type: computed
+    name: inverseNode
+    final: true
+    input:
+      -
+        color:
+            connection-name: edgeDetectNode
+            connection-slot: 0
+            content-operation: preserve
+    output:
+        color:
+            access: rw
+        depth:
+            access: r
+    shaders:
+        compute: ../../src/shaders/inverse.comp.glsl

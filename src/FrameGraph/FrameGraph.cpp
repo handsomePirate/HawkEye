@@ -1,5 +1,6 @@
 #include "FrameGraph.hpp"
 #include "RasterizeNode.hpp"
+#include "ComputeNode.hpp"
 
 FrameGraph::FrameGraph()
 {
@@ -26,16 +27,25 @@ void FrameGraph::Configure(const YAML::Node& graphConfiguration, const CommonFra
 		}
 		if (type == "rasterized")
 		{
-			nodes[name] = std::make_unique<RasterizeNode>();
-			nodes[name]->SetName(name);
-			if (isFinal)
-			{
-				finalNode = nodes[name].get();
-			}
+			nodes[name] = std::make_unique<RasterizeNode>(name, commonFrameData.framesInFlightCount, isFinal);
+		}
+		else if (type == "computed")
+		{
+			nodes[name] = std::make_unique<ComputeNode>(name, commonFrameData.framesInFlightCount, isFinal);
+		}
+		else
+		{
+			CoreLogFatal(VulkanLogger, "Configuration: Node can only be rasterized or computed.");
+			return;
+		}
+
+		if (isFinal)
+		{
+			finalNode = nodes[name].get();
 		}
 	}
 
-	RecursivelyConfigure(finalNode, graphConfiguration, commonFrameData);
+	RecursivelyConfigure(finalNode, nullptr, graphConfiguration, commonFrameData);
 }
 
 void FrameGraph::Shutdown(const CommonFrameData& commonFrameData)
@@ -51,7 +61,22 @@ void FrameGraph::Record(VkCommandBuffer commandBuffer, int frameInFlight, const 
 	VkCommandBufferBeginInfo commandBufferBeginInfo{};
 	commandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo);
-	RecursivelyRecord(commandBuffer, frameInFlight, commonFrameData, finalNode);
+	
+	VkViewport viewport;
+	viewport.x = 0;
+	viewport.y = 0;
+	viewport.width = (float)commonFrameData.surfaceData->width;
+	viewport.height = (float)commonFrameData.surfaceData->height;
+	viewport.minDepth = 0.f;
+	viewport.maxDepth = 1.f;
+	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+	VkRect2D scissor;
+	scissor.offset = { 0, 0 };
+	scissor.extent = VkExtent2D{ (uint32_t)commonFrameData.surfaceData->width, (uint32_t)commonFrameData.surfaceData->height };
+	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+	RecursivelyRecord(commandBuffer, frameInFlight, commonFrameData, finalNode, nullptr);
 	vkEndCommandBuffer(commandBuffer);
 }
 
@@ -93,7 +118,8 @@ void FrameGraph::UseBuffers(const std::string& nodeName, HawkEye::Pipeline::Draw
 	nodes[nodeName]->UseBuffers(drawBuffers, bufferCount);
 }
 
-void FrameGraph::RecursivelyConfigure(FrameGraphNode* node, const YAML::Node& graphConfiguration, const CommonFrameData& commonFrameData)
+void FrameGraph::RecursivelyConfigure(FrameGraphNode* node, FrameGraphNode* nextNode, const YAML::Node& graphConfiguration,
+	const CommonFrameData& commonFrameData)
 {
 	// TODO: Set up a graph for easier recording.
 
@@ -137,16 +163,39 @@ void FrameGraph::RecursivelyConfigure(FrameGraphNode* node, const YAML::Node& gr
 		auto it = nodes.find(dependency);
 		if (it == nodes.end())
 		{
-			// TODO: Error.
+			CoreLogFatal(VulkanLogger, "Configuration: Incomplete graph.");
 			return;
 		}
-		RecursivelyConfigure(nodes[dependency].get(), graphConfiguration, commonFrameData);
+		RecursivelyConfigure(nodes[dependency].get(), node, graphConfiguration, commonFrameData);
 		nodeInputs.push_back(nodes[dependency]->GetOutputs());
 	}
 
 	// TODO: Use swapchain logic, render pass logic
-	node->Configure(graphConfiguration[i], commonFrameData.framesInFlightCount, nodeInputs, inputCharacteristics,
-		commonFrameData, commonFrameData.renderPassUP, true);
+	const bool first = dependencies.empty();
+	const bool last = nextNode == nullptr;
+
+	VkRenderPass renderPass = VK_NULL_HANDLE;
+
+	if (first && last)
+	{
+		renderPass = commonFrameData.renderPassUP;
+	}
+	else if (first) // && !last
+	{
+		renderPass = commonFrameData.renderPassUA;
+	}
+	else if (last) // && !first
+	{
+		renderPass = commonFrameData.renderPassGP;
+	}
+	else // !first && !last
+	{
+		renderPass = commonFrameData.renderPassGA;
+	}
+
+	const bool nextInheritsSwapchain = nextNode && nextNode->GetType() == FrameGraphNodeType::Rasterized && nextNode->IsFinal();
+
+	node->Configure(graphConfiguration[i], nodeInputs, inputCharacteristics, commonFrameData, renderPass, last || nextInheritsSwapchain);
 }
 
 struct OutputReference
@@ -155,7 +204,7 @@ struct OutputReference
 };
 
 const OutputTargetCharacteristics& FrameGraph::RecursivelyRecord(VkCommandBuffer commandBuffer, int frameInFlight,
-	const CommonFrameData& commonFrameData, FrameGraphNode* node)
+	const CommonFrameData& commonFrameData, FrameGraphNode* node, FrameGraphNode* nextNode)
 {
 	// Get all previous nodes.
 	const auto& inputCharacteristics = node->GetInputCharacteristics();
@@ -179,16 +228,24 @@ const OutputTargetCharacteristics& FrameGraph::RecursivelyRecord(VkCommandBuffer
 	}
 
 	// Use input nodes' outputs to configure this node.
+	bool allDependenciesCompute = true;
 	std::vector<OutputReference> outputCharacteristics;
 	for (const auto& dependency : dependencies)
 	{
 		outputCharacteristics.push_back(
-			{ RecursivelyRecord(commandBuffer, frameInFlight, commonFrameData, nodes[dependency].get()) });
+			{ RecursivelyRecord(commandBuffer, frameInFlight, commonFrameData, nodes[dependency].get(), node) });
+		if (nodes[dependency]->GetType() == FrameGraphNodeType::Rasterized)
+		{
+			allDependenciesCompute = false;
+		}
 	}
 
 	// TODO: Transition and render pass logic.
 	// TODO: Handle empty records.
-	bool containsData = node->Record(commandBuffer, frameInFlight, commonFrameData, true, true);
+	const bool startPass = dependencies.empty() || allDependenciesCompute;
+	const bool endPass = nextNode && nextNode->GetType() == FrameGraphNodeType::Computed;
+
+	bool containsData = node->Record(commandBuffer, frameInFlight, commonFrameData, startPass, endPass);
 
 	return node->GetOutputCharacteristics();
 }
@@ -223,7 +280,7 @@ void FrameGraph::RecursivelyResize(FrameGraphNode* node, const CommonFrameData& 
 		auto it = nodes.find(dependency);
 		if (it == nodes.end())
 		{
-			// TODO: Error.
+			CoreLogFatal(VulkanLogger, "Resize: Incomplete graph.");
 			return;
 		}
 		RecursivelyResize(nodes[dependency].get(), commonFrameData);

@@ -26,9 +26,10 @@ public:
 	void UseBuffers(const std::string& nodeName, HawkEye::Pipeline::DrawBuffer* drawBuffers, int bufferCount);
 
 private:
-	void RecursivelyConfigure(FrameGraphNode* node, const YAML::Node& graphConfiguration, const CommonFrameData& commonFrameData);
+	void RecursivelyConfigure(FrameGraphNode* node, FrameGraphNode* nextNode, const YAML::Node& graphConfiguration,
+		const CommonFrameData& commonFrameData);
 	const OutputTargetCharacteristics& RecursivelyRecord(VkCommandBuffer commandBuffer, int frameInFlight,
-		const CommonFrameData& commonFrameData, FrameGraphNode* node);
+		const CommonFrameData& commonFrameData, FrameGraphNode* node, FrameGraphNode* nextNode);
 	void RecursivelyResize(FrameGraphNode* node, const CommonFrameData& commonFrameData);
 
 	std::map<std::string, std::unique_ptr<FrameGraphNode>> nodes;

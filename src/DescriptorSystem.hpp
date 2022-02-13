@@ -20,6 +20,7 @@ public:
 	void UpdatePreallocated(const std::string& name, int frameInFlight, void* data, int dataSize);
 	void UpdateBuffer(const std::string& name, int frameInFlight, HawkEye::HBuffer buffer);
 	void UpdateTexture(const std::string& name, int frameInFlight, HawkEye::HTexture texture);
+	void UpdateStorageImage(const std::string& name, int frameInFlight, VkImageView imageView);
 
 private:
 	VulkanBackend::BackendData* backendData;

@@ -35,10 +35,11 @@ void DescriptorSystem::Init(VulkanBackend::BackendData* backendData, HawkEye::HR
 	this->rendererData = rendererData;
 
 	// descriptor pool sizes
-	std::vector<VkDescriptorPoolSize> poolSizes(3);
+	std::vector<VkDescriptorPoolSize> poolSizes(4);
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	poolSizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 
 	int cumulativeSize = 0;
 	for (int u = 0; u < uniformData.size(); ++u)
@@ -61,6 +62,10 @@ void DescriptorSystem::Init(VulkanBackend::BackendData* backendData, HawkEye::HR
 		else if (uniformData[u].type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
 		{
 			++poolSizes[2].descriptorCount;
+		}
+		else if (uniformData[u].type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+		{
+			++poolSizes[3].descriptorCount;
 		}
 		cumulativeSize += uniformData[u].size;
 	}
@@ -182,7 +187,10 @@ void DescriptorSystem::UpdateBuffer(const std::string& name, int frameInFlight, 
 void DescriptorSystem::UpdateTexture(const std::string& name, int frameInFlight, HawkEye::HTexture texture)
 {
 	// TODO: Check existence?
-	HawkEye::WaitForUpload(rendererData, texture);
+	if (texture->uploadFence != VK_NULL_HANDLE)
+	{
+		HawkEye::WaitForUpload(rendererData, texture);
+	}
 
 	VkDescriptorImageInfo imageInfo{};
 	imageInfo.imageLayout = texture->imageLayout;
@@ -195,6 +203,24 @@ void DescriptorSystem::UpdateTexture(const std::string& name, int frameInFlight,
 	descriptorWrite.dstBinding = resourceBindings[name];
 	descriptorWrite.dstArrayElement = 0;
 	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptorWrite.descriptorCount = 1;
+	descriptorWrite.pImageInfo = &imageInfo;
+
+	vkUpdateDescriptorSets(backendData->logicalDevice, 1, &descriptorWrite, 0, nullptr);
+}
+
+void DescriptorSystem::UpdateStorageImage(const std::string& name, int frameInFlight, VkImageView imageView)
+{
+	VkDescriptorImageInfo imageInfo{};
+	imageInfo.imageView = imageView;
+	imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+	VkWriteDescriptorSet descriptorWrite{};
+	descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrite.dstSet = descriptorSets[frameInFlight];
+	descriptorWrite.dstBinding = resourceBindings[name];
+	descriptorWrite.dstArrayElement = 0;
+	descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	descriptorWrite.descriptorCount = 1;
 	descriptorWrite.pImageInfo = &imageInfo;
 

@@ -7,13 +7,14 @@
 class FrameGraphNode
 {
 public:
-	FrameGraphNode();
+	FrameGraphNode(const std::string& name, int framesInFlightCount, FrameGraphNodeType type, bool isFinal);
 	virtual ~FrameGraphNode();
 
-	void SetName(const std::string& name);
 	const std::string& GetName() const;
+	FrameGraphNodeType GetType() const;
+	bool IsFinal() const;
 
-	virtual void Configure(const YAML::Node& nodeConfiguration, int framesInFlightCount,
+	virtual void Configure(const YAML::Node& nodeConfiguration,
 		const std::vector<NodeOutputs*>& nodeInputs, std::vector<InputTargetCharacteristics>& inputCharacteristics,
 		const CommonFrameData& commonFrameData, VkRenderPass renderPassReference, bool useSwapchain) = 0;
 
@@ -40,9 +41,11 @@ public:
 
 protected:
 	std::string name;
+	FrameGraphNodeType type;
 	int samples;
 	int framesInFlightCount;
 	bool useSwapchain;
+	bool isFinal;
 	bool reuseColorTarget;
 	bool reuseDepthTarget;
 	bool reuseSampleTarget;

@@ -5,6 +5,12 @@
 #include <memory>
 #include <vulkan/vulkan.hpp>
 
+enum class FrameGraphNodeType
+{
+	Rasterized,
+	Computed
+};
+
 struct CommandBufferData
 {
 	bool dirty = true;
