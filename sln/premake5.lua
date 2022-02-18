@@ -6,7 +6,8 @@ workspace "HawkEye"
 	
 	flags
 	{
-		"MultiProcessorCompile"
+		"MultiProcessorCompile",
+		"FatalWarnings"
 	}
 	
 include "../dependencies.lua"
