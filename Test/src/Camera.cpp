@@ -12,7 +12,7 @@ Camera::Camera(const float aspect) :
 	up_(0.f, 1.f, 0.f),
 	zNear_(0.01f),
 	zFar_(10000.f),
-	fov_(SceneUtils::DegsToRads(60)),
+	fov_(SceneUtils::DegsToRads(60.f)),
 	aspect_(aspect),
 	perspective_(true) {
 	UpdateViewProjectionMatrices();
