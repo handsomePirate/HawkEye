@@ -206,7 +206,7 @@ void HawkEye::Pipeline::DrawFrame()
 	}
 
 	auto millisecondsSinceEpoch = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-	unsigned int concatTime = unsigned int(millisecondsSinceEpoch);
+	unsigned int concatTime = (unsigned int)(millisecondsSinceEpoch);
 	
 	UpdateUniforms(currentImageIndex);
 

@@ -1,0 +1,12 @@
+.gitignore
+.gitmodules
+Bootstrap*
+.git
+**/build/
+**/obj/
+.vs
+Dockerfile
+**/*.sln
+**/*.vcxproj
+**/*.vcxproj.filters
+**/*.vcxproj.user

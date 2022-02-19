@@ -26,7 +26,6 @@ project "HawkEye"
 	}
 
 	links {
-		"$(VULKAN_SDK)/lib/vulkan-1.lib",
 		"SoftwareCore",
 		"yaml-cpp",
 		"VulkanBackend",
@@ -34,7 +33,13 @@ project "HawkEye"
 	}
 
 	filter "system:windows"
-		systemversion "latest"
+		links {
+			"$(VULKAN_SDK)/lib/vulkan-1.lib"
+		}
+	filter "system:linux"
+		links {
+			"vulkan"
+		}
 	filter{}
 	
 	filter "configurations:Debug"

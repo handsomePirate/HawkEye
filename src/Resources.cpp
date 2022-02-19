@@ -3,6 +3,7 @@
 #include <VulkanBackend/ErrorCheck.hpp>
 #include <VulkanBackend/VulkanBackendAPI.hpp>
 #include <vulkan/vulkan.hpp>
+#include <math.h>
 
 int GetMipCount(int width, int height)
 {

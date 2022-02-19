@@ -4,6 +4,7 @@
 #include <SoftwareCore/Input.hpp>
 #include <SoftwareCore/Filesystem.hpp>
 #include <SoftwareCore/Logger.hpp>
+#include <SoftwareCore/Process.hpp>
 #include <HawkEye/Logger.hpp>
 #include <Eigen/Dense>
 #include <array>
@@ -219,7 +220,7 @@ int main(int argc, char* argv[])
 	{
 		// Filesystem.
 
-		Core::Filesystem filesystem(argv[0]);
+		Core::Filesystem filesystem(CoreProcess.GetRuntimePath());
 		auto backendConfigFile = filesystem.GetAbsolutePath("../../../ext/VulkanBackend/Test/testfile.yml");
 		auto frontendConfigFile = filesystem.GetAbsolutePath("../../testfile.yml");
 
@@ -244,7 +245,7 @@ int main(int argc, char* argv[])
 		// Pipeline.
 
 		renderingPipeline1.Configure(rendererData, frontendConfigFile.c_str(), windowWidth, windowHeight,
-			testWindow1->GetWindowHandle(), testWindow1->GetProgramConnection());
+			(void*)testWindow1->GetWindowHandle(), (void*)testWindow1->GetProgramConnection());
 #ifdef SECOND_WINDOW
 		renderingPipeline2.Configure(rendererData, frontendConfigFile.c_str(), windowWidth, windowHeight,
 			testWindow2->GetWindowHandle(), testWindow2->GetProgramConnection());
@@ -393,7 +394,7 @@ int main(int argc, char* argv[])
 		const float targetTimeDelta = 1 / 60.f * 1000.f;
 		float timeDelta = 1;
 		auto before = std::chrono::high_resolution_clock::now();
-		unsigned int currentTime = unsigned int(std::chrono::duration_cast<std::chrono::milliseconds>(before.time_since_epoch()).count());
+		unsigned int currentTime = (unsigned int)(std::chrono::duration_cast<std::chrono::milliseconds>(before.time_since_epoch()).count());
 		renderingPipeline1.SetUniform("generativeNode", "time", currentTime);
 #ifdef SECOND_WINDOW
 		while (!testWindow1->ShouldClose() && !testWindow2->ShouldClose())
@@ -412,7 +413,7 @@ int main(int argc, char* argv[])
 			timeDelta = std::chrono::duration<float, std::milli>(now - before).count();
 			before = std::chrono::high_resolution_clock::now();
 			HandleInput(timeDelta);
-			unsigned int currentTime = unsigned int(std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count());
+			unsigned int currentTime = (unsigned int)(std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count());
 			renderingPipeline1.SetUniform("generativeNode", "time", currentTime);
 			
 			// Stabilizing frame rate.
