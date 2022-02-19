@@ -19,6 +19,7 @@ nodes:
   -
     type: rasterized
     name: rasterizedNode
+    final: true
     input:
       -
         color:
@@ -56,52 +57,36 @@ nodes:
         # uv
       - vec2
     cull-mode: front
-  -
-    type: computed
-    name: blurNode
-    input:
-      -
-        color:
-            connection-name: rasterizedNode
-            connection-slot: 0
-            content-operation: preserve
-            format: color-optimal
-    output:
-        color:
-            access: rw
-            format: color-optimal
-    shaders:
-        compute: ../../src/shaders/blur.comp.glsl
-  -
-    type: computed
-    name: edgeDetectNode
-    input:
-      -
-        color:
-            connection-name: blurNode
-            connection-slot: 0
-            content-operation: preserve
-            format: color-optimal
-    output:
-        color:
-            access: rw
-            format: color-optimal
-    shaders:
-        compute: ../../src/shaders/edge.comp.glsl
-  -
-    type: computed
-    name: inverseNode
-    final: true
-    input:
-      -
-        color:
-            connection-name: edgeDetectNode
-            connection-slot: 0
-            content-operation: preserve
-            format: color-optimal
-    output:
-        color:
-            access: rw
-            format: color-optimal
-    shaders:
-        compute: ../../src/shaders/inverse.comp.glsl
+#  -
+#    type: computed
+#    name: edgeDetectNode
+#    input:
+#      -
+#        color:
+#            connection-name: rasterizedNode
+#            connection-slot: 0
+#            content-operation: preserve
+#            format: color-optimal
+#    output:
+#        color:
+#            access: rw
+#            format: color-optimal
+#    shaders:
+#        compute: ../../src/shaders/edge.comp.glsl
+#  -
+#    type: computed
+#    name: inverseNode
+#    final: true
+#    input:
+#      -
+#        color:
+#            connection-name: edgeDetectNode
+#            connection-slot: 0
+#            content-operation: preserve
+#            format: color-optimal
+#    output:
+#        color:
+#            access: rw
+#            format: color-optimal
+#    shaders:
+#        compute: ../../src/shaders/inverse.comp.glsl

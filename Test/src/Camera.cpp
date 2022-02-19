@@ -18,7 +18,8 @@ Camera::Camera(const float aspect) :
 	UpdateViewProjectionMatrices();
 }
 
-Camera::Camera(const Eigen::Vector3f& position, const Eigen::Vector3f& target, const Eigen::Vector3f& up, const float fov, const float aspect, const float zNear, const float zFar, const bool perspective) :
+Camera::Camera(const Eigen::Vector3f& position, const Eigen::Vector3f& target, const Eigen::Vector3f& up, const float fov, const float aspect,
+	const float zNear, const float zFar, const bool perspective) :
 	position_(position),
 	target_(target),
 	up_(up.normalized()),
