@@ -4,6 +4,7 @@
 #include "../Pipeline.hpp"
 #include <VulkanBackend/ErrorCheck.hpp>
 #include <VulkanShaderCompiler/VulkanShaderCompilerAPI.hpp>
+#include <SoftwareCore/DefaultLogger.hpp>
 
 ComputeNode::ComputeNode(const std::string& name, int framesInFlightCount, bool isFinal)
 	: FrameGraphNode(name, framesInFlightCount, FrameGraphNodeType::Computed, isFinal) {}
@@ -206,7 +207,7 @@ bool ComputeNode::Record(VkCommandBuffer commandBuffer, int frameInFlight, const
 {
 	if (!configured)
 	{
-		CoreLogWarn(VulkanLogger, "Computed node (%s): trying to record a node that was not configured.", name.c_str());
+		CoreLogWarn(DefaultLogger, "Computed node (%s): trying to record a node that was not configured.", name.c_str());
 		return false;
 	}
 
@@ -261,7 +262,7 @@ void ComputeNode::Resize(const CommonFrameData& commonFrameData, const std::vect
 {
 	if (!configured)
 	{
-		CoreLogWarn(VulkanLogger, "Computed node (%s): trying to resize a node that was not configured.", name.c_str());
+		CoreLogWarn(DefaultLogger, "Computed node (%s): trying to resize a node that was not configured.", name.c_str());
 		return;
 	}
 

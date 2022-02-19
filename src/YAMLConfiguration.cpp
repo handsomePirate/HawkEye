@@ -1,5 +1,5 @@
 #include "YAMLConfiguration.hpp"
-#include <VulkanBackend/Logger.hpp>
+#include <SoftwareCore/DefaultLogger.hpp>
 #include <regex>
 
 void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uniformData)
@@ -85,17 +85,17 @@ void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uni
 			int size = sizeof(void*);
 			if (type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER && passNode[u]["size"])
 			{
-				CoreLogWarn(VulkanLogger, "Pipeline uniforms: Size is irrelevant for texture uniforms - skipping.");
+				CoreLogWarn(DefaultLogger, "Pipeline uniforms: Size is irrelevant for texture uniforms - skipping.");
 			}
 			if (type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER && passNode[u]["size"])
 			{
-				CoreLogWarn(VulkanLogger, "Pipeline uniforms: Size is irrelevant for storage buffer uniforms - skipping.");
+				CoreLogWarn(DefaultLogger, "Pipeline uniforms: Size is irrelevant for storage buffer uniforms - skipping.");
 			}
 			if (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
 			{
 				if (!passNode[u]["size"])
 				{
-					CoreLogWarn(VulkanLogger, "Pipeline uniforms: Missing uniform size - skipping.");
+					CoreLogWarn(DefaultLogger, "Pipeline uniforms: Missing uniform size - skipping.");
 					continue;
 				}
 				else
@@ -118,18 +118,18 @@ void ConfigureUniforms(const YAML::Node& passNode, std::vector<UniformData>& uni
 					}
 					else if (residency != "cpu")
 					{
-						CoreLogError(VulkanLogger, "Pipeline uniforms: Incorrect residency parameter - defaulting to cpu.");
+						CoreLogError(DefaultLogger, "Pipeline uniforms: Incorrect residency parameter - defaulting to cpu.");
 					}
 				}
 				else
 				{
-					CoreLogWarn(VulkanLogger, "Pipeline uniforms: Specifying residency for descriptor of a different type than uniform - skipping.");
+					CoreLogWarn(DefaultLogger, "Pipeline uniforms: Specifying residency for descriptor of a different type than uniform - skipping.");
 				}
 			}
 
 			if (name[0] == '_')
 			{
-				CoreLogError(VulkanLogger, "Pipeline uniforms: Name may not start with \'_\' - skipping.");
+				CoreLogError(DefaultLogger, "Pipeline uniforms: Name may not start with \'_\' - skipping.");
 				continue;
 			}
 			uniformData.push_back(
@@ -150,7 +150,7 @@ std::string FrameGraphConfigurator::GetName(const YAML::Node& nodeConfiguration)
 		return nodeConfiguration.as<std::string>();
 	}
 
-	CoreLogFatal(VulkanLogger, "Configuration: Node name not specified.");
+	CoreLogFatal(DefaultLogger, "Configuration: Node name not specified.");
 	return "";
 }
 
@@ -203,7 +203,7 @@ VkFormat GetFormat(const YAML::Node& nodeConfiguration)
 			}
 			else
 			{
-				CoreLogError(VulkanLogger, "Configuration: Format incorrectly specified.");
+				CoreLogError(DefaultLogger, "Configuration: Format incorrectly specified.");
 				return VK_FORMAT_UNDEFINED;
 			}
 		}
@@ -214,7 +214,7 @@ VkFormat GetFormat(const YAML::Node& nodeConfiguration)
 		auto bitDepthIt = bitDepthStart.find(bitDepth);
 		if (bitDepthIt == bitDepthStart.end())
 		{
-			CoreLogError(VulkanLogger, "Configuration: Format incorrectly specified - \'bit-depth\' must be 8, 16, or 32.");
+			CoreLogError(DefaultLogger, "Configuration: Format incorrectly specified - \'bit-depth\' must be 8, 16, or 32.");
 			return VK_FORMAT_UNDEFINED;
 		}
 		int formatOffset = bitDepthIt->second;
@@ -224,7 +224,7 @@ VkFormat GetFormat(const YAML::Node& nodeConfiguration)
 			auto typeOffsetIt = typeOffset8.find(type);
 			if (typeOffsetIt == typeOffset8.end())
 			{
-				CoreLogError(VulkanLogger,
+				CoreLogError(DefaultLogger,
 					"Configuration: Format incorrectly specified - \'type\' must be %s, %s, %s, %s, %s, or %s for \'bit-depth\' of 8.",
 					"unorm", "snorm", "uscaled", "sscaled", "uint", "sint");
 				return VK_FORMAT_UNDEFINED;
@@ -237,7 +237,7 @@ VkFormat GetFormat(const YAML::Node& nodeConfiguration)
 			auto typeOffsetIt = typeOffset16.find(type);
 			if (typeOffsetIt == typeOffset16.end())
 			{
-				CoreLogError(VulkanLogger,
+				CoreLogError(DefaultLogger,
 					"Configuration: Format incorrectly specified - \'type\' must be %s, %s, %s, %s, %s, %s, or %s for \'bit-depth\' of 16.",
 					"unorm", "snorm", "uscaled", "sscaled", "uint", "sint", "sfloat");
 				return VK_FORMAT_UNDEFINED;
@@ -250,7 +250,7 @@ VkFormat GetFormat(const YAML::Node& nodeConfiguration)
 			auto typeOffsetIt = typeOffset32.find(type);
 			if (typeOffsetIt == typeOffset32.end())
 			{
-				CoreLogError(VulkanLogger,
+				CoreLogError(DefaultLogger,
 					"Configuration: Format incorrectly specified - \'type\' must be %s, %s, or %s for \'bit-depth\' of 32.",
 					"uint", "sint", "sfloat");
 				return VK_FORMAT_UNDEFINED;
@@ -261,7 +261,7 @@ VkFormat GetFormat(const YAML::Node& nodeConfiguration)
 
 		if (channelCount < 1 || channelCount > 4)
 		{
-			CoreLogError(VulkanLogger, "Configuration: Format incorrectly specified - \'channel-count\' must be >= 1 and <= 4.");
+			CoreLogError(DefaultLogger, "Configuration: Format incorrectly specified - \'channel-count\' must be >= 1 and <= 4.");
 			return VK_FORMAT_UNDEFINED;
 		}
 
@@ -270,7 +270,7 @@ VkFormat GetFormat(const YAML::Node& nodeConfiguration)
 		return (VkFormat)formatOffset;
 	}
 
-	CoreLogFatal(VulkanLogger, "Configuration: Format not defined.");
+	CoreLogFatal(DefaultLogger, "Configuration: Format not defined.");
 	return VK_FORMAT_UNDEFINED;
 }
 
@@ -279,7 +279,7 @@ ImageFormat GetImageFormat(const YAML::Node& nodeConfiguration, TargetType type)
 	ImageFormat imageFormat;
 	if (!nodeConfiguration["format"].IsDefined())
 	{
-		CoreLogFatal(VulkanLogger, "Configuration: Format not defined.");
+		CoreLogFatal(DefaultLogger, "Configuration: Format not defined.");
 		return imageFormat;
 	}
 
@@ -349,13 +349,13 @@ std::unique_ptr<OutputImageCharacteristics> GetOutputImageCharacteristics(const 
 		}
 		else if (access != "rw" && access != "wr")
 		{
-			CoreLogFatal(VulkanLogger, "Configuration: Incorrect output access format - \'r\', \'w\', \'rw\', or \'wr\' supported.");
+			CoreLogFatal(DefaultLogger, "Configuration: Incorrect output access format - \'r\', \'w\', \'rw\', or \'wr\' supported.");
 			return nullptr;
 		}
 	}
 	else
 	{
-		CoreLogFatal(VulkanLogger, "Configuration: Node output access not specified.");
+		CoreLogFatal(DefaultLogger, "Configuration: Node output access not specified.");
 		return nullptr;
 	}
 
@@ -410,7 +410,7 @@ std::unique_ptr<InputImageCharacteristics> GetInputImageCharacteristics(const YA
 		}
 		else if (contentOperationString != "dontcare")
 		{
-			CoreLogError(VulkanLogger, "Configuration: Input image operation incorrectly specified - must be \'clear\', \'preserve\', or \'dontcare\'.");
+			CoreLogError(DefaultLogger, "Configuration: Input image operation incorrectly specified - must be \'clear\', \'preserve\', or \'dontcare\'.");
 		}
 	}
 
@@ -444,7 +444,7 @@ std::vector<InputTargetCharacteristics> FrameGraphConfigurator::GetInputCharacte
 		return std::move(result);
 	}
 
-	CoreLogFatal(VulkanLogger, "Configuration: Node inputs not specified.");
+	CoreLogFatal(DefaultLogger, "Configuration: Node inputs not specified.");
 	return {};
 }
 
@@ -469,7 +469,7 @@ OutputTargetCharacteristics FrameGraphConfigurator::GetOutputCharacteristics(con
 		return result;
 	}
 
-	CoreLogFatal(VulkanLogger, "Configuration: Node output not specified.");
+	CoreLogFatal(DefaultLogger, "Configuration: Node output not specified.");
 	return result;
 }
 
@@ -509,7 +509,7 @@ std::vector<VertexAttribute> FrameGraphConfigurator::GetVertexAttributes(const Y
 
 			if (!isWellFormed)
 			{
-				CoreLogWarn(VulkanLogger, "Pipeline pass: Vertex attributes not well formed (can be [ui]?vec[2-4]).");
+				CoreLogWarn(DefaultLogger, "Pipeline pass: Vertex attributes not well formed (can be [ui]?vec[2-4]).");
 				continue;
 			}
 
@@ -528,7 +528,7 @@ std::vector<VertexAttribute> FrameGraphConfigurator::GetVertexAttributes(const Y
 		return result;
 	}
 
-	CoreLogFatal(VulkanLogger, "Configuration: Vertex attributes not specified.");
+	CoreLogFatal(DefaultLogger, "Configuration: Vertex attributes not specified.");
 	return result;
 }
 
@@ -552,7 +552,7 @@ std::vector<std::pair<Shader, std::string>> FrameGraphConfigurator::GetShaders(c
 		return result;
 	}
 
-	CoreLogFatal(VulkanLogger, "Configuration: Shaders not specified.");
+	CoreLogFatal(DefaultLogger, "Configuration: Shaders not specified.");
 	return result;
 }
 
@@ -573,7 +573,7 @@ VkCullModeFlags FrameGraphConfigurator::GetCullMode(const YAML::Node& nodeConfig
 		{
 			if (cullMode != "none")
 			{
-				CoreLogError(VulkanLogger, "Pipeline pass: Wrong cull mode format - none assumed.");
+				CoreLogError(DefaultLogger, "Pipeline pass: Wrong cull mode format - none assumed.");
 			}
 			return VK_CULL_MODE_NONE;
 		}

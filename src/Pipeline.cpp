@@ -3,10 +3,8 @@
 #include "Descriptors.hpp"
 #include "Commands.hpp"
 #include "Framebuffer.hpp"
-#include <VulkanBackend/Logger.hpp>
+#include <SoftwareCore/DefaultLogger.hpp>
 #include <VulkanBackend/ErrorCheck.hpp>
-#define CompilerLogger VulkanLogger
-#include <VulkanShaderCompiler/Logger.hpp>
 #include <VulkanShaderCompiler/VulkanShaderCompilerAPI.hpp>
 #include <SoftwareCore/Filesystem.hpp>
 #include <yaml-cpp/yaml.h>
@@ -112,7 +110,7 @@ void HawkEye::Pipeline::Configure(HRendererData rendererData, const char* config
 
 	p_->configured = true;
 
-	CoreLogInfo(VulkanLogger, "Pipeline: Configuration successful.");
+	CoreLogInfo(DefaultLogger, "Pipeline: Configuration successful.");
 }
 
 void HawkEye::Pipeline::Shutdown()
@@ -185,13 +183,13 @@ void HawkEye::Pipeline::DrawFrame()
 	// Recreate the swapchain if it's no longer compatible with the surface (OUT_OF_DATE) or no longer optimal for presentation (SUBOPTIMAL)
 	if ((result == VK_ERROR_OUT_OF_DATE_KHR) || (result == VK_SUBOPTIMAL_KHR))
 	{
-		CoreLogWarn(VulkanLogger, "Pipeline: Should resize.");
+		CoreLogWarn(DefaultLogger, "Pipeline: Should resize.");
 		return;
 	}
 	VulkanCheck(result);
 	if (currentImageIndex == UINT32_MAX)
 	{
-		CoreLogFatal(VulkanLogger, "Error: Lost the swapchain.");
+		CoreLogFatal(DefaultLogger, "Error: Lost the swapchain.");
 		throw std::runtime_error("Error: Lost the swapchain.");
 	}
 
@@ -236,7 +234,7 @@ void HawkEye::Pipeline::DrawFrame()
 		if (result == VK_ERROR_OUT_OF_DATE_KHR)
 		{
 			// Swap chain is no longer compatible with the surface and needs to be recreated
-			CoreLogWarn(VulkanLogger, "Pipeline: Should resize.");
+			CoreLogWarn(DefaultLogger, "Pipeline: Should resize.");
 			return;
 		}
 		else

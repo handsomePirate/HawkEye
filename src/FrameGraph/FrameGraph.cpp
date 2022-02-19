@@ -1,6 +1,7 @@
 #include "FrameGraph.hpp"
 #include "RasterizeNode.hpp"
 #include "ComputeNode.hpp"
+#include <SoftwareCore/DefaultLogger.hpp>
 #include <VulkanBackend/ErrorCheck.hpp>
 
 FrameGraph::FrameGraph()
@@ -38,7 +39,7 @@ void FrameGraph::Configure(const YAML::Node& graphConfiguration, const CommonFra
 		}
 		else
 		{
-			CoreLogFatal(VulkanLogger, "Configuration: Node can only be rasterized or computed.");
+			CoreLogFatal(DefaultLogger, "Configuration: Node can only be rasterized or computed.");
 			return;
 		}
 
@@ -101,7 +102,7 @@ void FrameGraph::UpdatePreallocatedUniformData(const std::string& nodeName, cons
 	auto node = nodes.find(nodeName);
 	if (node == nodes.end())
 	{
-		CoreLogError(VulkanLogger, "Uniform update: No node \'%s\' is configured in the frame graph (could have been pruned).",
+		CoreLogError(DefaultLogger, "Uniform update: No node \'%s\' is configured in the frame graph (could have been pruned).",
 			nodeName.c_str());
 		return;
 	}
@@ -114,7 +115,7 @@ void FrameGraph::UpdateTexture(const std::string& nodeName, const std::string& n
 	auto node = nodes.find(nodeName);
 	if (node == nodes.end())
 	{
-		CoreLogError(VulkanLogger, "Texture update: No node \'%s\' is configured in the framegraph (could have been pruned).",
+		CoreLogError(DefaultLogger, "Texture update: No node \'%s\' is configured in the framegraph (could have been pruned).",
 			nodeName.c_str());
 		return;
 	}
@@ -127,7 +128,7 @@ void FrameGraph::UpdateStorageBuffer(const std::string& nodeName, const std::str
 	auto node = nodes.find(nodeName);
 	if (node == nodes.end())
 	{
-		CoreLogError(VulkanLogger, "Buffer update: No node \'%s\' is configured in the frame graph (could have been pruned).",
+		CoreLogError(DefaultLogger, "Buffer update: No node \'%s\' is configured in the frame graph (could have been pruned).",
 			nodeName.c_str());
 		return;
 	}
@@ -139,7 +140,7 @@ HawkEye::HMaterial FrameGraph::CreateMaterial(const std::string& nodeName, void*
 	auto node = nodes.find(nodeName);
 	if (node == nodes.end())
 	{
-		CoreLogError(VulkanLogger, "Material creation: No node \'%s\' is configured in the frame graph (could have been pruned).",
+		CoreLogError(DefaultLogger, "Material creation: No node \'%s\' is configured in the frame graph (could have been pruned).",
 			nodeName.c_str());
 		return -1;
 	}
@@ -151,7 +152,7 @@ void FrameGraph::UseBuffers(const std::string& nodeName, HawkEye::Pipeline::Draw
 	auto node = nodes.find(nodeName);
 	if (node == nodes.end())
 	{
-		CoreLogError(VulkanLogger, "Buffer usage: No node \'%s\' is configured in the frame graph (could have been pruned).",
+		CoreLogError(DefaultLogger, "Buffer usage: No node \'%s\' is configured in the frame graph (could have been pruned).",
 			nodeName.c_str());
 		return;
 	}
@@ -283,7 +284,7 @@ VkRenderPass FrameGraph::RecursivelyConfigure(FrameGraphNode* node, FrameGraphNo
 		auto it = nodes.find(dependency);
 		if (it == nodes.end())
 		{
-			CoreLogFatal(VulkanLogger, "Configuration: Incomplete graph.");
+			CoreLogFatal(DefaultLogger, "Configuration: Incomplete graph.");
 			return VK_NULL_HANDLE;
 		}
 		// TODO: Handle two forks coming together (render pass wise).
@@ -500,7 +501,7 @@ void FrameGraph::RecursivelyResize(FrameGraphNode* node, const CommonFrameData& 
 		auto it = nodes.find(dependency);
 		if (it == nodes.end())
 		{
-			CoreLogFatal(VulkanLogger, "Resize: Incomplete graph.");
+			CoreLogFatal(DefaultLogger, "Resize: Incomplete graph.");
 			return;
 		}
 		RecursivelyResize(nodes[dependency].get(), commonFrameData);

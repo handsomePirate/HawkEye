@@ -1,4 +1,5 @@
 #include "Framebuffer.hpp"
+#include <SoftwareCore/DefaultLogger.hpp>
 
 Target FramebufferUtils::CreateColorTarget(const VulkanBackend::BackendData& backendData,
 	const VulkanBackend::SurfaceData& surfaceData, ImageFormat targetFormat)
@@ -13,7 +14,7 @@ Target FramebufferUtils::CreateColorTarget(const VulkanBackend::BackendData& bac
 		}
 		else if (targetFormat.metadata == ImageFormat::Metadata::DepthOptimal)
 		{
-			CoreLogError(VulkanLogger, "Configuration: input/output format for color target is depth optimal");
+			CoreLogError(DefaultLogger, "Configuration: input/output format for color target is depth optimal");
 			return target;
 		}
 	}
@@ -47,7 +48,7 @@ Target FramebufferUtils::CreateDepthTarget(const VulkanBackend::BackendData& bac
 		}
 		else if (targetFormat.metadata == ImageFormat::Metadata::ColorOptimal)
 		{
-			CoreLogError(VulkanLogger, "Configuration: input/output format for depth target is color optimal");
+			CoreLogError(DefaultLogger, "Configuration: input/output format for depth target is color optimal");
 			return target;
 		}
 	}

@@ -1,5 +1,6 @@
 #include "HawkEye/HawkEyeAPI.hpp"
 #include "Resources.hpp"
+#include <SoftwareCore/DefaultLogger.hpp>
 #include <VulkanBackend/ErrorCheck.hpp>
 #include <VulkanBackend/VulkanBackendAPI.hpp>
 #include <vulkan/vulkan.hpp>
@@ -294,7 +295,7 @@ void HawkEye::UpdateBuffer(HRendererData rendererData, HBuffer buffer, void* dat
 {
 	if (dataSize > buffer->dataSize)
 	{
-		CoreLogError(VulkanLogger, "Data upload: Specified data size is bigger than buffer size.");
+		CoreLogError(DefaultLogger, "Data upload: Specified data size is bigger than buffer size.");
 		return;
 	}
 

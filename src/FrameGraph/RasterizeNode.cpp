@@ -2,6 +2,7 @@
 #include "../Resources.hpp"
 #include "../Descriptors.hpp"
 #include "../Pipeline.hpp"
+#include <SoftwareCore/DefaultLogger.hpp>
 #include <VulkanBackend/ErrorCheck.hpp>
 #include <VulkanShaderCompiler/VulkanShaderCompilerAPI.hpp>
 
@@ -239,7 +240,7 @@ bool RasterizeNode::Record(VkCommandBuffer commandBuffer, int frameInFlight, con
 {
 	if (!configured)
 	{
-		CoreLogWarn(VulkanLogger, "Rasterized node (%s): trying to record a node that was not configured.", name.c_str());
+		CoreLogWarn(DefaultLogger, "Rasterized node (%s): trying to record a node that was not configured.", name.c_str());
 		return false;
 	}
 
@@ -321,7 +322,7 @@ void RasterizeNode::Resize(const CommonFrameData& commonFrameData, const std::ve
 {
 	if (!configured)
 	{
-		CoreLogWarn(VulkanLogger, "Rasterized node (%s): trying to resize a node that was not configured.", name.c_str());
+		CoreLogWarn(DefaultLogger, "Rasterized node (%s): trying to resize a node that was not configured.", name.c_str());
 		return;
 	}
 

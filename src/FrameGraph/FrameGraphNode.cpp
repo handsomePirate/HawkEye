@@ -1,4 +1,5 @@
 #include "FrameGraphNode.hpp"
+#include <SoftwareCore/DefaultLogger.hpp>
 
 FrameGraphNode::FrameGraphNode(const std::string& name, int framesInFlightCount, FrameGraphNodeType type, bool isFinal)
 	: name(name), framesInFlightCount(framesInFlightCount), type(type), isFinal(isFinal) {}
@@ -42,7 +43,7 @@ void FrameGraphNode::UpdatePreallocatedUniformData(const std::string& name, int 
 {
 	if (!configured)
 	{
-		CoreLogError(VulkanLogger, "Uniform update: No uniform \'%s\' configured for node \'%s\'", name.c_str(), this->name.c_str());
+		CoreLogError(DefaultLogger, "Uniform update: No uniform \'%s\' configured for node \'%s\'", name.c_str(), this->name.c_str());
 		return;
 	}
 	uniformDescriptorSystem.UpdatePreallocated(name, frameInFlight, data, dataSize);
@@ -52,7 +53,7 @@ void FrameGraphNode::UpdateTexture(const std::string& name, int frameInFlight, H
 {
 	if (!configured)
 	{
-		CoreLogError(VulkanLogger, "Uniform update: No texture uniform \'%s\' configured for node \'%s\'", name.c_str(), this->name.c_str());
+		CoreLogError(DefaultLogger, "Uniform update: No texture uniform \'%s\' configured for node \'%s\'", name.c_str(), this->name.c_str());
 		return;
 	}
 	uniformDescriptorSystem.UpdateTexture(name, frameInFlight, texture);
@@ -62,7 +63,7 @@ void FrameGraphNode::UpdateStorageBuffer(const std::string& name, int frameInFli
 {
 	if (!configured)
 	{
-		CoreLogError(VulkanLogger, "Uniform update: No buffer uniform \'%s\' configured for node \'%s\'", name.c_str(), this->name.c_str());
+		CoreLogError(DefaultLogger, "Uniform update: No buffer uniform \'%s\' configured for node \'%s\'", name.c_str(), this->name.c_str());
 		return;
 	}
 	uniformDescriptorSystem.UpdateBuffer(name, frameInFlight, storageBuffer);
@@ -88,7 +89,7 @@ HawkEye::HMaterial FrameGraphNode::CreateMaterial(void* data, int dataSize)
 	// TODO: Checks (e.g., dataSize)
 	if (type != FrameGraphNodeType::Rasterized)
 	{
-		CoreLogError(VulkanLogger, "Material creation: Only allowed for rasterized nodes (node \'%s\').", name);
+		CoreLogError(DefaultLogger, "Material creation: Only allowed for rasterized nodes (node \'%s\').", name);
 		return -1;
 	}
 

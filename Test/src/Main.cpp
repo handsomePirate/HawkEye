@@ -3,9 +3,8 @@
 #include <EverViewport/WindowAPI.hpp>
 #include <SoftwareCore/Input.hpp>
 #include <SoftwareCore/Filesystem.hpp>
-#include <SoftwareCore/Logger.hpp>
+#include <SoftwareCore/DefaultLogger.hpp>
 #include <SoftwareCore/Process.hpp>
-#include <HawkEye/Logger.hpp>
 #include <Eigen/Dense>
 #include <array>
 #include <chrono>
@@ -224,9 +223,9 @@ int main(int argc, char* argv[])
 		auto backendConfigFile = filesystem.GetAbsolutePath("../../../ext/VulkanBackend/Test/testfile.yml");
 		auto frontendConfigFile = filesystem.GetAbsolutePath("../../testfile.yml");
 
-		VulkanLogger.SetNewOutput(&Print);
+		DefaultLogger.SetNewOutput(&Print);
 #ifdef _WIN32
-		VulkanLogger.SetNewOutput(&PrintWin32);
+		DefaultLogger.SetNewOutput(&PrintWin32);
 #endif
 
 		// Renderer data.
